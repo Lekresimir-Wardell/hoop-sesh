@@ -1,224 +1,247 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Lekrešimir Wardell Hoops - Login & Reservations</title>
+  <title>Lekrešimir Wardell Hoops - Login</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
-    /* Centering & Warriors 2009 colors */
-    body { font-family: Arial,sans-serif; text-align:center; background:#FFC72C; color:#1D428A; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; min-height:100vh; justify-content:center; }
-    #loginForm, #calendarContainer { background:#FFC72C; color:#1D428A; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.3); max-width:450px; width:90%; }
-    input, textarea { width:80%; padding:10px; margin:10px auto; display:block; border-radius:6px; border:1px solid #1D428A; font-size:16px; }
-    button { background:#1D428A; color:#FFC72C; border:none; padding:10px 20px; margin:5px; border-radius:6px; font-weight:bold; cursor:pointer; }
-    button:hover { background:#10275c; }
-    #calendar { display:flex; flex-wrap:wrap; justify-content:center; margin:20px auto; max-width:420px; }
-    .day { width:60px; height:60px; line-height:60px; margin:2px; font-weight:bold; border-radius:6px; cursor:pointer; border:1px solid #1D428A; }
-    .available { background:#a0f9a0; }
-    .reserved { background:#f99; cursor:not-allowed; }
-    .mine { background:#99c0ff; cursor:default; }
-    #reservationForm { display:none; margin-top:20px; }
-    textarea { width:90%; margin:5px; }
-    .legend { margin-top:20px; font-weight:bold; }
-    .legend span { display:inline-block; width:20px; height:20px; margin-right:5px; vertical-align:middle; border-radius:4px; }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f5f5f5; }
+    #loginForm, #calendarContainer { max-width: 400px; margin: auto; }
+    input, textarea, select { display: block; margin: 10px auto; width: 80%; padding: 8px; }
+    button { padding: 8px 16px; margin: 5px; }
+    #calendar { display: flex; flex-wrap: wrap; max-width: 420px; margin: 20px auto; }
+    .day { border: 1px solid #ccc; width: 60px; height: 60px; line-height: 60px; cursor: pointer; margin: 2px; font-weight: bold; }
+    .available { background-color: #1D428A; color: #FFC72C; }
+    .reserved { background-color: #FFC72C; color: #1D428A; cursor: not-allowed; }
+    .mine { background-color: #6BCBFF; color: #1D428A; cursor: default; }
+    #reservationForm { display: none; margin-top: 20px; }
+    .legend { margin-top: 20px; font-weight: bold; }
+    .legend span { display: inline-block; width: 20px; height: 20px; margin-right: 5px; vertical-align: middle; }
   </style>
 </head>
 <body>
-
-<!-- LOGIN FORM -->
-<div id="loginForm">
-  <h1>Prijava</h1>
-  <input type="email" id="email" placeholder="Email" required>
-  <input type="password" id="password" placeholder="Lozinka" required>
-  <button id="loginBtn">Prijavi se</button>
-  <button id="registerBtn">Registriraj se</button>
-  <p id="loginError" style="color:red;"></p>
-</div>
-
-<!-- CALENDAR & RESERVATION -->
-<div id="calendarContainer" style="display:none;">
-  <h1>Rezerviraj Hoop Sesh</h1>
-  <button id="logoutBtn">Odjava</button>
-  <div>
-    <button id="prevMonth">←</button>
-    <span id="monthYear"></span>
-    <button id="nextMonth">→</button>
+  <div id="loginForm">
+    <h1>Prijava</h1>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Lozinka" required>
+    <button id="loginBtn">Prijavi se</button>
+    <button id="registerBtn">Registriraj se</button>
+    <p id="loginError" style="color:red;"></p>
   </div>
-  <div id="calendar"></div>
 
-  <form id="reservationForm">
-    <h2>Rezervacija za <span id="selectedDate"></span></h2>
-    <label>Vrijeme: <input type="text" name="time" placeholder="npr. 18:00" required></label><br>
-    <label>Imena i prezimena (odvojena zarezom):</label><br>
-    <textarea name="names" placeholder="Ime1 Prezime1, Ime2 Prezime2" required></textarea><br>
-    <button type="submit">Rezerviraj</button>
-    <button type="button" id="cancelBtn">Odustani</button>
-  </form>
+  <div id="calendarContainer" style="display:none;">
+    <h1>Rezerviraj Hoop Sesh</h1>
+    <button id="logoutBtn">Odjava</button>
 
-  <div class="legend">
-    <div><span class="available"></span> Slobodno</div>
-    <div><span class="reserved"></span> Zauzeto</div>
-    <div><span class="mine"></span> Tvoj termin</div>
+    <div>
+      <button id="prevMonth">←</button>
+      <span id="monthYear"></span>
+      <button id="nextMonth">→</button>
+    </div>
+    <div id="calendar"></div>
+
+    <form id="reservationForm">
+      <h2>Rezervacija za <span id="selectedDate"></span></h2>
+      <label>Vrijeme: <input type="text" name="time" placeholder="npr. 18:00" required></label><br>
+      <label>Teren: <input type="text" name="location" placeholder="npr. Vanjski teren" required></label><br>
+      <label>Imena i prezimena (odvojena zarezom):</label><br>
+      <textarea name="names" placeholder="Ime1 Prezime1, Ime2 Prezime2" required></textarea><br>
+      <button type="submit">Rezerviraj</button>
+      <button type="button" id="cancelBtn">Odustani</button>
+    </form>
+
+    <div class="legend">
+      <div><span class="available"></span> Slobodno</div>
+      <div><span class="reserved"></span> Zauzeto</div>
+      <div><span class="mine"></span> Tvoj termin</div>
+    </div>
   </div>
-</div>
 
-<script>
-  // 🔑 Firebase Config (put your own Firebase project keys here)
- const firebaseConfig = {
-  apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
-  authDomain: "hoops-165ec.firebaseapp.com",
-  projectId: "hoops-165ec",
-  storageBucket: "hoops-165ec.firebasestorage.app",
-  messagingSenderId: "563400604791",
-  appId: "1:563400604791:web:50183bcf65de09bd019a72",
-  measurementId: "G-C3YPHXZCXN"
-};
+  <script>
+    // ✅ Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
+      authDomain: "hoops-165ec.firebaseapp.com",
+      projectId: "hoops-165ec",
+      storageBucket: "hoops-165ec.firebasestorage.app",
+      messagingSenderId: "563400604791",
+      appId: "1:563400604791:web:50183bcf65de09bd019a72",
+      measurementId: "G-C3YPHXZCXN"
+    };
 
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-  const loginForm = document.getElementById("loginForm");
-  const calendarContainer = document.getElementById("calendarContainer");
-  const loginError = document.getElementById("loginError");
-  const emailInput = document.getElementById("email");
-  const passwordInput = document.getElementById("password");
+    // ✅ Init EmailJS
+    emailjs.init("rHykzq_BAVO2vvGfE");
 
-  const calendarEl = document.getElementById("calendar");
-  const monthYearEl = document.getElementById("monthYear");
-  const form = document.getElementById("reservationForm");
-  const selectedDateEl = document.getElementById("selectedDate");
-  const cancelBtn = document.getElementById("cancelBtn");
+    const loginForm = document.getElementById("loginForm");
+    const calendarContainer = document.getElementById("calendarContainer");
+    const loginError = document.getElementById("loginError");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
 
-  let selectedDate = null;
-  let currentMonth = new Date().getMonth();
-  let currentYear = new Date().getFullYear();
-  let reservedDates = new Set();
-  let userEmail = null;
+    const calendarEl = document.getElementById("calendar");
+    const monthYearEl = document.getElementById("monthYear");
+    const form = document.getElementById("reservationForm");
+    const selectedDateEl = document.getElementById("selectedDate");
+    const cancelBtn = document.getElementById("cancelBtn");
 
-  // LOGIN
-  document.getElementById("loginBtn").addEventListener("click", () => {
-    auth.signInWithEmailAndPassword(emailInput.value, passwordInput.value)
-      .catch(err => loginError.textContent = err.message);
-  });
+    let selectedDate = null;
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+    let reservedDates = new Set();
+    let userEmail = null;
 
-  document.getElementById("registerBtn").addEventListener("click", () => {
-    auth.createUserWithEmailAndPassword(emailInput.value, passwordInput.value)
-      .catch(err => loginError.textContent = err.message);
-  });
+    // LOGIN
+    document.getElementById("loginBtn").addEventListener("click", () => {
+      auth.signInWithEmailAndPassword(emailInput.value, passwordInput.value)
+        .catch(err => loginError.textContent = err.message);
+    });
 
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    auth.signOut();
-  });
+    document.getElementById("registerBtn").addEventListener("click", () => {
+      auth.createUserWithEmailAndPassword(emailInput.value, passwordInput.value)
+        .catch(err => loginError.textContent = err.message);
+    });
 
-  auth.onAuthStateChanged(user => {
-    if(user){
-      userEmail = user.email;
-      loginForm.style.display = "none";
-      calendarContainer.style.display = "block";
-      renderCalendar(currentMonth, currentYear);
-    } else {
-      loginForm.style.display = "block";
-      calendarContainer.style.display = "none";
-    }
-  });
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      auth.signOut();
+    });
 
-  // CALENDAR
-  function renderCalendar(month, year){
-    calendarEl.innerHTML = "";
-    reservedDates.clear();
-    const daysInMonth = new Date(year, month+1, 0).getDate();
-    monthYearEl.textContent = `${year}-${month+1}`;
-
-    db.collection("reservations").where("status","!=","rejected").get().then(snapshot => {
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        reservedDates.add(JSON.stringify({date: data.date, email: data.userEmail || ""}));
-      });
-
-      for(let d=1; d<=daysInMonth; d++){
-        const dayEl = document.createElement("div");
-        dayEl.className = "day";
-        const dateStr = `${year}-${month+1}-${d}`;
-        dayEl.dataset.date = dateStr;
-        dayEl.textContent = d;
-
-        const today = new Date();
-        if(new Date(year, month, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate())){
-          dayEl.classList.add("reserved"); // prošli dani
-        } else {
-          let found = false;
-          reservedDates.forEach(r=>{
-            const obj = JSON.parse(r);
-            if(obj.date===dateStr){
-              if(obj.email === userEmail){
-                dayEl.classList.add("mine"); // tvoj termin
-              } else {
-                dayEl.classList.add("reserved");
-              }
-              found = true;
-            }
-          });
-          if(!found){
-            dayEl.classList.add("available");
-            dayEl.addEventListener("click",()=>selectDate(dateStr));
-          }
-        }
-        calendarEl.appendChild(dayEl);
+    auth.onAuthStateChanged(user => {
+      if(user){
+        userEmail = user.email;
+        loginForm.style.display = "none";
+        calendarContainer.style.display = "block";
+        renderCalendar(currentMonth, currentYear);
+      } else {
+        loginForm.style.display = "block";
+        calendarContainer.style.display = "none";
       }
     });
-  }
 
-  function selectDate(date){
-    selectedDate = date;
-    selectedDateEl.textContent = date;
-    form.style.display = "block";
-  }
+    // CALENDAR
+    function renderCalendar(month, year){
+      calendarEl.innerHTML = "";
+      reservedDates.clear();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+      monthYearEl.textContent = `${year}-${month+1}`;
 
-  cancelBtn.addEventListener("click", ()=>{
-    form.reset();
-    form.style.display = "none";
-  });
+      db.collection("reservations")
+        .where("status","!=","rejected")
+        .get()
+        .then(snapshot => {
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            reservedDates.add(JSON.stringify({date: data.date, email: data.userEmail || ""}));
+          });
 
-  document.getElementById("prevMonth").addEventListener("click", ()=>{
-    currentMonth--;
-    if(currentMonth<0){currentMonth=11;currentYear--;}
-    renderCalendar(currentMonth,currentYear);
-  });
+          for(let d=1; d<=daysInMonth; d++){
+            const dayEl = document.createElement("div");
+            dayEl.className = "day";
+            const dateStr = `${year}-${month+1}-${d}`;
+            dayEl.dataset.date = dateStr;
+            dayEl.textContent = d;
 
-  document.getElementById("nextMonth").addEventListener("click", ()=>{
-    currentMonth++;
-    if(currentMonth>11){currentMonth=0;currentYear++;}
-    renderCalendar(currentMonth,currentYear);
-  });
-
-  form.addEventListener("submit", async e=>{
-    e.preventDefault();
-    const time = form.time.value;
-    const names = form.names.value;
-
-    const exists = await db.collection("reservations").where("date","==",selectedDate).where("time","==",time).get();
-
-    if(!exists.empty){
-      alert("Termin već rezerviran!");
-      return;
+            const today = new Date();
+            if(new Date(year, month, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate())){
+              dayEl.classList.add("reserved"); // prošli dani
+            } else {
+              let found = false;
+              reservedDates.forEach(r=>{
+                const obj = JSON.parse(r);
+                if(obj.date===dateStr){
+                  if(obj.email === userEmail){
+                    dayEl.classList.add("mine");
+                  } else {
+                    dayEl.classList.add("reserved");
+                  }
+                  found = true;
+                }
+              });
+              if(!found){
+                dayEl.classList.add("available");
+                dayEl.addEventListener("click",()=>selectDate(dateStr));
+              }
+            }
+            calendarEl.appendChild(dayEl);
+          }
+        });
     }
 
-    await db.collection("reservations").add({
-      date: selectedDate,
-      time,
-      names,
-      status: "pending",
-      userEmail,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    function selectDate(date){
+      selectedDate = date;
+      selectedDateEl.textContent = date;
+      form.style.display = "block";
+    }
+
+    cancelBtn.addEventListener("click", ()=>{
+      form.reset();
+      form.style.display = "none";
     });
 
-    alert("Termin rezerviran! Čeka odobrenje.");
-    form.reset();
-    form.style.display = "none";
-    renderCalendar(currentMonth,currentYear);
-  });
-</script>
+    document.getElementById("prevMonth").addEventListener("click", ()=>{
+      currentMonth--;
+      if(currentMonth<0){currentMonth=11;currentYear--;}
+      renderCalendar(currentMonth,currentYear);
+    });
+
+    document.getElementById("nextMonth").addEventListener("click", ()=>{
+      currentMonth++;
+      if(currentMonth>11){currentMonth=0;currentYear++;}
+      renderCalendar(currentMonth,currentYear);
+    });
+
+    form.addEventListener("submit", async e=>{
+      e.preventDefault();
+      const time = form.time.value;
+      const names = form.names.value;
+      const location = form.location.value;
+
+      const exists = await db.collection("reservations")
+        .where("date","==",selectedDate)
+        .where("time","==",time)
+        .get();
+
+      if(!exists.empty){
+        alert("Termin već rezerviran!");
+        return;
+      }
+
+      // ✅ Save in Firestore
+      await db.collection("reservations").add({
+        date: selectedDate,
+        time,
+        names,
+        location,
+        status: "pending",
+        userEmail,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // ✅ Send Email via EmailJS
+      emailjs.send("service_cs8e9oq", "template_phcx5cs", {
+        reservation_date: selectedDate,
+        reservation_time: time,
+        reservation_names: names,
+        reservation_location: location,
+        from_name: userEmail,
+        email: "linovernik@gmail.com" // tvoj mail primatelj
+      }).then(() => {
+        alert("Rezervacija poslana i email obavijest je stigla!");
+      }).catch(err => {
+        console.error("EmailJS error:", err);
+        alert("Rezervacija spremljena, ali email nije poslan.");
+      });
+
+      form.reset();
+      form.style.display = "none";
+      renderCalendar(currentMonth,currentYear);
+    });
+  </script>
 </body>
 </html>
