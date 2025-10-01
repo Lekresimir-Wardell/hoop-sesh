@@ -13,12 +13,39 @@
     input, textarea, select { display: block; margin: 10px auto; width: 80%; padding: 8px; }
     button { padding: 8px 16px; margin: 5px; }
     #calendar { display: flex; flex-wrap: wrap; max-width: 420px; margin: 20px auto; }
-    .day { border: 1px solid #ccc; width: 60px; height: 60px; line-height: 60px; cursor: pointer; margin: 2px; font-weight: bold; }
+    .day { border: 1px solid #ccc; width: 60px; height: 60px; line-height: 60px; cursor: pointer; margin: 2px; font-weight: bold; position: relative; }
     .available { background-color: #1D428A; color: #FFC72C; }
-    .reserved { background-color: #FFC72C; color: #1D428A; cursor: not-allowed; }
+    .pending { background-color: #FFD700; color: #1D428A; cursor: not-allowed; } /* žuta */
+    .approved { background-color: #28a745; color: #fff; cursor: not-allowed; } /* zelena */
+    .joined { background-color: #ff8c00; color: #fff; cursor: not-allowed; } /* narančasta */
+    .past { background-color: #dc3545; color: #fff; cursor: not-allowed; } /* crvena */
     .mine { background-color: #6BCBFF; color: #1D428A; cursor: default; }
+
+    /* Tooltip */
+    .tooltip {
+      visibility: hidden;
+      width: 180px;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+    }
+    .day:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+
     #reservationForm { display: none; margin-top: 20px; }
-    .legend { margin-top: 20px; font-weight: bold; }
+    .legend { margin-top: 20px; font-weight: bold; text-align: left; }
     .legend span { display: inline-block; width: 20px; height: 20px; margin-right: 5px; vertical-align: middle; }
   </style>
 </head>
@@ -55,7 +82,10 @@
 
     <div class="legend">
       <div><span class="available"></span> Slobodno</div>
-      <div><span class="reserved"></span> Zauzeto</div>
+      <div><span class="pending"></span> Na čekanju</div>
+      <div><span class="approved"></span> Odobreno</div>
+      <div><span class="joined"></span> Pridruženi</div>
+      <div><span class="past"></span> Prošlo</div>
       <div><span class="mine"></span> Tvoj termin</div>
     </div>
   </div>
@@ -94,7 +124,6 @@
     let selectedDate = null;
     let currentMonth = new Date().getMonth();
     let currentYear = new Date().getFullYear();
-    let reservedDates = new Set();
     let userEmail = null;
 
     // LOGIN
@@ -125,52 +154,55 @@
     });
 
     // CALENDAR
-    function renderCalendar(month, year){
+    async function renderCalendar(month, year){
       calendarEl.innerHTML = "";
-      reservedDates.clear();
       const daysInMonth = new Date(year, month+1, 0).getDate();
       monthYearEl.textContent = `${year}-${month+1}`;
 
-      db.collection("reservations")
-        .where("status","!=","rejected")
-        .get()
-        .then(snapshot => {
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            reservedDates.add(JSON.stringify({date: data.date, email: data.userEmail || ""}));
-          });
+      const snapshot = await db.collection("reservations").get();
+      const reservations = {};
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        reservations[data.date] = data;
+      });
 
-          for(let d=1; d<=daysInMonth; d++){
-            const dayEl = document.createElement("div");
-            dayEl.className = "day";
-            const dateStr = `${year}-${month+1}-${d}`;
-            dayEl.dataset.date = dateStr;
-            dayEl.textContent = d;
+      for(let d=1; d<=daysInMonth; d++){
+        const dayEl = document.createElement("div");
+        dayEl.className = "day";
+        const dateStr = `${year}-${month+1}-${d}`;
+        dayEl.dataset.date = dateStr;
+        dayEl.textContent = d;
 
-            const today = new Date();
-            if(new Date(year, month, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate())){
-              dayEl.classList.add("reserved"); // prošli dani
-            } else {
-              let found = false;
-              reservedDates.forEach(r=>{
-                const obj = JSON.parse(r);
-                if(obj.date===dateStr){
-                  if(obj.email === userEmail){
-                    dayEl.classList.add("mine");
-                  } else {
-                    dayEl.classList.add("reserved");
-                  }
-                  found = true;
-                }
-              });
-              if(!found){
-                dayEl.classList.add("available");
-                dayEl.addEventListener("click",()=>selectDate(dateStr));
-              }
-            }
-            calendarEl.appendChild(dayEl);
+        const today = new Date();
+        const dateObj = new Date(year, month, d);
+
+        if(dateObj < new Date(today.getFullYear(), today.getMonth(), today.getDate())){
+          dayEl.classList.add("past");
+        } else if(reservations[dateStr]){
+          const r = reservations[dateStr];
+
+          if(r.userEmail === userEmail){
+            dayEl.classList.add("mine");
+          } else {
+            dayEl.classList.add(r.status || "pending");
           }
-        });
+
+          // tooltip
+          const tooltip = document.createElement("div");
+          tooltip.className = "tooltip";
+          tooltip.innerHTML = `
+            <strong>Ime/a:</strong> ${r.names}<br>
+            <strong>Vrijeme:</strong> ${r.time}<br>
+            <strong>Teren:</strong> ${r.location}
+          `;
+          dayEl.appendChild(tooltip);
+        } else {
+          dayEl.classList.add("available");
+          dayEl.addEventListener("click",()=>selectDate(dateStr));
+        }
+
+        calendarEl.appendChild(dayEl);
+      }
     }
 
     function selectDate(date){
@@ -212,7 +244,7 @@
         return;
       }
 
-      // ✅ Save in Firestore
+      // Save in Firestore
       await db.collection("reservations").add({
         date: selectedDate,
         time,
@@ -223,21 +255,17 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      // ✅ Send Email via EmailJS
+      // Send Email
       emailjs.send("service_cs8e9oq", "template_phcx5cs", {
         reservation_date: selectedDate,
         reservation_time: time,
         reservation_names: names,
         reservation_location: location,
         from_name: userEmail,
-        email: "linovernik@gmail.com" // tvoj mail primatelj
-      }).then(() => {
-        alert("Rezervacija poslana i email obavijest je stigla!");
-      }).catch(err => {
-        console.error("EmailJS error:", err);
-        alert("Rezervacija spremljena, ali email nije poslan.");
+        email: "linovernik@gmail.com"
       });
 
+      alert("Rezervacija spremljena i poslan email!");
       form.reset();
       form.style.display = "none";
       renderCalendar(currentMonth,currentYear);
