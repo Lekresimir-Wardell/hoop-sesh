@@ -11,7 +11,7 @@
   <style>
     body { 
       font-family: Arial, sans-serif; 
-      background:#f5f5f8; 
+      background:#f5f5f5; 
       margin:0; 
       padding:0; 
       height: 100vh;
@@ -26,7 +26,6 @@
       padding: 40px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      width: 320px;
     }
     #loginSection h2 {
       font-size: 26px;
@@ -43,16 +42,8 @@
       font-weight: bold;
       cursor:pointer;
       transition: 0.3s;
-      width: 100%;
     }
     #loginBtn:hover { background:#16336d; }
-
-    #loginError {
-      margin-top: 15px;
-      color: red;
-      font-size: 14px;
-      display: none;
-    }
 
     #appWrapper {
       display: none;
@@ -178,7 +169,6 @@
 <div id="loginSection">
   <h2>Prijavite se za rezervaciju</h2>
   <button id="loginBtn">Prijava putem Google-a</button>
-  <div id="loginError"></div>
 </div>
 
 <div id="appWrapper" style="flex-direction:column;">
@@ -234,11 +224,13 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
+  // EmailJS init
   (function(){ emailjs.init("rHykzq_BAVO2vvGfE"); })();
+
+  const adminEmail = "YOUR_ADMIN_EMAIL@gmail.com"; // 👈 set your admin email here
 
   const loginSection = document.getElementById("loginSection");
   const loginBtn = document.getElementById("loginBtn");
-  const loginError = document.getElementById("loginError");
   const appWrapper = document.getElementById("appWrapper");
   const calendar = document.getElementById("calendar");
   const form = document.getElementById("reservationForm");
@@ -251,19 +243,10 @@
   const provider = new GoogleAuthProvider();
 
   loginBtn.addEventListener("click", async () => {
-    loginError.style.display = "none";
     try {
       await signInWithPopup(auth, provider);
     } catch (err) {
-      console.error(err);
-      loginError.style.display = "block";
-      if (err.code === "auth/operation-not-allowed") {
-        loginError.textContent = "❌ Google prijava nije omogućena. Omogućite je u Firebase Console → Authentication → Sign-in method.";
-      } else if (err.code === "auth/unauthorized-domain") {
-        loginError.textContent = "❌ Vaša domena nije dodana u Firebase ovlaštene domene.";
-      } else {
-        loginError.textContent = "❌ Greška pri prijavi: " + err.message;
-      }
+      alert("Login nije uspio: " + err.message + ". Provjerite da li je domena dodana u Firebase Authentication → Settings → Authorized domains.");
     }
   });
 
@@ -274,7 +257,7 @@
   onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUser = user;
-      userEmailSpan.textContent = "Prijavljeni ste kao: " + user.email;
+      userEmailSpan.textContent = user.email;
       loginSection.style.display = "none";
       appWrapper.style.display = "flex";
       renderCalendar();
@@ -343,6 +326,17 @@
             await updateDoc(docRef, {
               joinRequests: [...(r.joinRequests || []), newJoin]
             });
+
+            // Email to admin
+            emailjs.send("service_cs8e9oq", "template_joinreq", {
+              requester_name: name,
+              requester_email: currentUser.email,
+              date: r.date,
+              time: r.time,
+              teren: r.teren,
+              admin_email: adminEmail
+            });
+
             alert("Zahtjev poslan!");
             renderCalendar();
           });
@@ -381,7 +375,8 @@
       name: name,
       date: selectedDate,
       time: time,
-      teren: teren
+      teren: teren,
+      admin_email: adminEmail
     });
 
     alert("Rezervacija poslana, status: pending");
