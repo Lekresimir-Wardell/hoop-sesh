@@ -9,44 +9,123 @@
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:0; }
+    body { 
+      font-family: Arial, sans-serif; 
+      background:#f5f5f5; 
+      margin:0; 
+      padding:0; 
+    }
+
+    #loginWrapper {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+    }
+    #loginBox {
+      background:white;
+      padding:40px;
+      border-radius:12px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.2);
+      text-align:center;
+      max-width:400px;
+      width:100%;
+    }
+    #loginBox h2 { margin-bottom:20px; }
+    #googleLoginBtn {
+      padding:12px 24px;
+      background:#1D428A;
+      color:#FFC72C;
+      font-size:16px;
+      font-weight:bold;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+    }
 
     #appWrapper {
-      display: flex; justify-content: center; align-items: flex-start;
-      width: 100%; max-width: 1200px; margin: auto; gap: 20px;
-      padding: 20px; box-sizing: border-box;
+      display:none; /* hidden until login */
+      justify-content: center;
+      align-items: flex-start;
+      width: 100%;
+      max-width: 1200px;
+      margin: auto;
+      gap: 20px;
+      padding: 20px;
+      box-sizing: border-box;
     }
 
     #calendarSection { flex: 0 0 80%; }
     #formSection { flex: 0 0 20%; }
 
-    #calendar { display:grid; grid-template-columns: repeat(7, 1fr); gap:2px; margin:20px auto; }
-    .day {
-      border:1px solid #ccc; width:100%; height:80px;
-      display:flex; align-items:center; justify-content:center;
-      font-weight:bold; position:relative; cursor:pointer;
+    #calendar { 
+      display:grid; 
+      grid-template-columns: repeat(7, 1fr);
+      gap:4px;
+      max-width:100%;
+      margin:20px auto; 
     }
-    .day:hover::after {
-      content: attr(data-info); position:absolute; bottom:85px; left:50%;
-      transform:translateX(-50%); background:#333; color:#fff;
-      padding:5px; font-size:12px; border-radius:4px; white-space:pre-line; z-index:10;
+    .day { 
+      border:1px solid #ccc; 
+      height:80px; 
+      cursor:pointer; 
+      font-weight:bold; 
+      position:relative; 
+      text-align:center;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+    }
+    .day:hover::after { 
+      content: attr(data-info); 
+      position:absolute; 
+      bottom:85px; 
+      left:50%; 
+      transform:translateX(-50%); 
+      background:#333; 
+      color:#fff; 
+      padding:5px; 
+      font-size:12px; 
+      border-radius:4px; 
+      white-space:pre-line; 
+      z-index: 10;
     }
 
+    /* Status boje */
     .available { background:#1D428A; color:#FFC72C; }
     .mine { background:#6BCBFF !important; color:#1D428A !important; }
     .reserved-other { background:orange; color:#fff; }
     .pending { background:yellow; color:#000; }
     .rejected, .past { background:red; color:#fff; cursor:not-allowed; }
 
-    #reservationForm {
-      display:none; margin-top:20px; background:white;
-      padding:15px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    /* Forma */
+    #reservationForm { 
+      display:none; 
+      margin-top:20px; 
+      background:white; 
+      padding:15px; 
+      border-radius:8px; 
+      box-shadow:0 2px 8px rgba(0,0,0,0.1); 
     }
-    input, select { display:block; margin:10px auto; width:90%; padding:8px; box-sizing:border-box; }
+
+    input, select { 
+      display:block; 
+      margin:10px auto; 
+      width:90%; 
+      padding:8px; 
+      box-sizing: border-box;
+    }
     button { padding:8px 16px; margin:5px; cursor:pointer; }
 
+    /* Legenda */
     .legend { margin-top:20px; font-weight:bold; }
-    .legend span { display:inline-block; width:20px; height:20px; margin-right:5px; vertical-align:middle; }
+    .legend span { 
+      display:inline-block; 
+      width:20px; 
+      height:20px; 
+      margin-right:5px; 
+      vertical-align:middle; 
+    }
 
     @media (max-width: 900px) {
       #appWrapper { flex-direction: column; }
@@ -55,6 +134,16 @@
   </style>
 </head>
 <body>
+
+<!-- LOGIN -->
+<div id="loginWrapper">
+  <div id="loginBox">
+    <h2>Prijava</h2>
+    <button id="googleLoginBtn">Prijavi se s Googleom</button>
+  </div>
+</div>
+
+<!-- APP -->
 <div id="appWrapper">
   <div id="calendarSection">
     <div id="calendar"></div>
@@ -70,7 +159,6 @@
   <div id="formSection">
     <form id="reservationForm">
       <h3>Rezervacija</h3>
-      <input type="text" id="name" placeholder="Vaše ime" required>
       <input type="time" id="time" required>
       <select id="teren" required>
         <option value="">Odaberite teren</option>
@@ -85,14 +173,29 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+  import { 
+    getAuth, 
+    onAuthStateChanged, 
+    GoogleAuthProvider, 
+    signInWithPopup, 
+    signOut 
+  } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+  import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    query, 
+    updateDoc, 
+    doc 
+  } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
     authDomain: "hoops-165ec.firebaseapp.com",
     projectId: "hoops-165ec",
-    storageBucket: "hoops-165ec.appspot.com",
+    storageBucket: "hoops-165ec.firebasestorage.app",
     messagingSenderId: "563400604791",
     appId: "1:563400604791:web:50183bcf65de09bd019a72",
     measurementId: "G-C3YPHXZCXN"
@@ -101,16 +204,40 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
+  // EmailJS init
   (function(){ emailjs.init("bHkaG3QCQ98fZq5Mu"); })();
 
+  const loginWrapper = document.getElementById("loginWrapper");
+  const appWrapper = document.getElementById("appWrapper");
+  const loginBtn = document.getElementById("googleLoginBtn");
   const calendar = document.getElementById("calendar");
   const form = document.getElementById("reservationForm");
+
   let selectedDate = null;
   let currentUser = null;
 
+  // Google login
+  loginBtn.addEventListener("click", async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      alert("Greška prilikom prijave: " + error.message);
+    }
+  });
+
+  // Auth state change
   onAuthStateChanged(auth, (user) => {
-    if (user) { currentUser = user; renderCalendar(); }
-    else { alert("Niste prijavljeni!"); }
+    if (user) {
+      currentUser = user;
+      loginWrapper.style.display = "none";
+      appWrapper.style.display = "flex";
+      renderCalendar();
+    } else {
+      currentUser = null;
+      loginWrapper.style.display = "flex";
+      appWrapper.style.display = "none";
+    }
   });
 
   async function renderCalendar() {
@@ -125,37 +252,27 @@
     const snapshot = await getDocs(collection(db, "reservations"));
     const reservations = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
 
-    // Add empty slots until first weekday
-    for (let i=0; i<firstDay.getDay(); i++) {
+    // Add empty slots for weekday alignment
+    for (let i = 0; i < firstDay.getDay(); i++) {
       const empty = document.createElement("div");
+      empty.classList.add("day");
+      empty.style.visibility = "hidden";
       calendar.appendChild(empty);
     }
 
     for (let i = 1; i <= lastDay.getDate(); i++) {
+      const dateStr = `${year}-${month+1}-${i}`;
       const dayDiv = document.createElement("div");
       dayDiv.classList.add("day");
       dayDiv.textContent = i;
 
-      const dayReservations = reservations.filter(r => {
-        const resDate = r.timestamp.toDate();
-        return resDate.getFullYear() === year &&
-               resDate.getMonth() === month &&
-               resDate.getDate() === i;
-      });
-
-      const currentDay = new Date(year, month, i);
-      if (currentDay < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
+      const dayReservations = reservations.filter(r => r.date === dateStr);
+      if (new Date(year, month, i) < today) {
         dayDiv.classList.add("past");
       } else if (dayReservations.length > 0) {
         let info = "";
         dayReservations.forEach(r => {
-          const resTime = r.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-          info += `${r.name} - ${resTime} - ${r.teren}\n`;
-          if (r.joinRequests && r.joinRequests.length > 0) {
-            r.joinRequests.forEach(j => {
-              info += `Pridruži se: ${j.name} (${j.status})\n`;
-            });
-          }
+          info += `${r.name} - ${r.time} - ${r.teren}\n`;
         });
         dayDiv.setAttribute("data-info", info);
 
@@ -164,47 +281,32 @@
           dayDiv.classList.add("mine");
         } else {
           dayDiv.classList.add("reserved-other");
-          dayDiv.addEventListener("click", async () => {
-            const name = prompt("Upišite ime za pridruživanje:");
-            if (!name) return;
-            const r = dayReservations[0];
-            const docRef = doc(db, "reservations", r.id);
-
-            // prevent duplicate joins
-            const alreadyJoined = (r.joinRequests || []).some(j => j.email === currentUser.email);
-            if (alreadyJoined) { alert("Već ste poslali zahtjev!"); return; }
-
-            const newJoin = { name, email: currentUser.email, status: "pending" };
-            await updateDoc(docRef, {
-              joinRequests: [...(r.joinRequests || []), newJoin]
-            });
-            alert("Zahtjev poslan!");
-            renderCalendar();
-          });
         }
       } else {
         dayDiv.classList.add("available");
         dayDiv.addEventListener("click", () => {
-          selectedDate = `${year}-${month+1}-${i}`;
+          selectedDate = dateStr;
           form.style.display = "block";
         });
       }
+
       calendar.appendChild(dayDiv);
     }
   }
 
+  // Reservation form
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!selectedDate) return;
 
-    const name = document.getElementById("name").value;
     const time = document.getElementById("time").value;
     const teren = document.getElementById("teren").value;
 
-    const selectedDateTime = new Date(`${selectedDate}T${time}`);
     await addDoc(collection(db, "reservations"), {
-      timestamp: Timestamp.fromDate(selectedDateTime),
-      name,
+      date: selectedDate,
+      name: currentUser.displayName,
+      email: currentUser.email,
+      time,
       teren,
       user: currentUser.email,
       status: "pending",
@@ -212,10 +314,11 @@
     });
 
     emailjs.send("service_8fwmwyi","template_p01lv7f",{
-      name: name,
+      to_email: currentUser.email,
+      name: currentUser.displayName,
       date: selectedDate,
-      time: time,
-      teren: teren
+      teren: teren,
+      status: "pending"
     });
 
     alert("Rezervacija poslana, status: pending");
