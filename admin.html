@@ -2,108 +2,139 @@
 <html lang="hr">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Panel</title>
+  <title>Admin Panel - Rezervacije</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <style>
-    body { font-family: Arial; background:#f5f5f5; padding:20px; }
-    .reservation, .join { 
-      background:white; margin:10px; padding:15px; 
-      border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1);
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    button { margin:5px; padding:6px 12px; cursor:pointer; }
-    .approved { background:green; color:white; }
-    .rejected { background:red; color:white; }
+    h1 {
+      color: #1D428A;
+    }
+    .reservation {
+      background: white;
+      padding: 15px;
+      margin: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 400px;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .accept { background: green; color: white; border: none; }
+    .reject { background: red; color: white; border: none; }
   </style>
 </head>
 <body>
-  <h2>Admin Panel - Upravljanje rezervacijama</h2>
-  <div id="reservations"></div>
+  <h1>Admin Panel - Rezervacije</h1>
+  <div id="reservationsList"></div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-  import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
-    authDomain: "hoops-165ec.firebaseapp.com",
-    projectId: "hoops-165ec",
-    storageBucket: "hoops-165ec.firebasestorage.app",
-    messagingSenderId: "563400604791",
-    appId: "1:563400604791:web:50183bcf65de09bd019a72",
-    measurementId: "G-C3YPHXZCXN"
-  };
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+    // Firebase config (use same as index.html)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
+      authDomain: "hoops-165ec.firebaseapp.com",
+      projectId: "hoops-165ec",
+      storageBucket: "hoops-165ec.firebasestorage.app",
+      messagingSenderId: "563400604791",
+      appId: "1:563400604791:web:50183bcf65de09bd019a72",
+      measurementId: "G-C3YPHXZCXN"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-  const adminEmail = "YOUR_ADMIN_EMAIL@gmail.com"; // 👈 replace with your exact email
+    // Init EmailJS
+    (function() {
+      emailjs.init("bHkaG3QCQ98fZq5Mu"); 
+    })();
 
-  onAuthStateChanged(auth, async (user) => {
-    if (user && user.email === adminEmail) {
-      loadReservations();
-    } else {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    }
-  });
+    const reservationsList = document.getElementById("reservationsList");
 
-  async function loadReservations() {
-    const snapshot = await getDocs(collection(db, "reservations"));
-    const reservations = snapshot.docs.map(docu => ({id: docu.id, ...docu.data()}));
-    const container = document.getElementById("reservations");
-    container.innerHTML = "";
-
-    reservations.forEach(r => {
-      const div = document.createElement("div");
-      div.classList.add("reservation");
-      div.innerHTML = `
-        <h3>${r.name} (${r.user})</h3>
-        <p>${r.date} ${r.time} - ${r.teren}</p>
-        <p>Status: ${r.status}</p>
-        <button class="approved">Prihvati</button>
-        <button class="rejected">Odbij</button>
-      `;
-      div.querySelector(".approved").onclick = async () => {
-        await updateDoc(doc(db,"reservations",r.id), {status:"approved"});
-        loadReservations();
-      };
-      div.querySelector(".rejected").onclick = async () => {
-        await updateDoc(doc(db,"reservations",r.id), {status:"rejected"});
-        loadReservations();
-      };
-
-      // join requests
-      if (r.joinRequests && r.joinRequests.length > 0) {
-        r.joinRequests.forEach((j, idx) => {
-          const joinDiv = document.createElement("div");
-          joinDiv.classList.add("join");
-          joinDiv.innerHTML = `
-            <p>Pridruži se: ${j.name} (${j.email}) - Status: ${j.status}</p>
-            <button class="approved">Prihvati</button>
-            <button class="rejected">Odbij</button>
-          `;
-          joinDiv.querySelector(".approved").onclick = async () => {
-            let newReqs = [...r.joinRequests];
-            newReqs[idx].status = "approved";
-            await updateDoc(doc(db,"reservations",r.id), {joinRequests: newReqs});
-            loadReservations();
-          };
-          joinDiv.querySelector(".rejected").onclick = async () => {
-            let newReqs = [...r.joinRequests];
-            newReqs[idx].status = "rejected";
-            await updateDoc(doc(db,"reservations",r.id), {joinRequests: newReqs});
-            loadReservations();
-          };
-          div.appendChild(joinDiv);
-        });
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        alert("Niste prijavljeni!");
+        window.location.href = "index.html";
+        return;
       }
 
-      container.appendChild(div);
+      // Restrict to your admin email
+      if (user.email !== "linovernik@gmail.com") {
+        alert("Nemate pristup ovoj stranici!");
+        window.location.href = "index.html";
+        return;
+      }
+
+      loadReservations();
     });
-  }
-</script>
+
+    async function loadReservations() {
+      reservationsList.innerHTML = "";
+      const snapshot = await getDocs(collection(db, "reservations"));
+      snapshot.forEach(docSnap => {
+        const r = { id: docSnap.id, ...docSnap.data() };
+
+        const div = document.createElement("div");
+        div.classList.add("reservation");
+        div.innerHTML = `
+          <p><b>Ime:</b> ${r.name}</p>
+          <p><b>Datum:</b> ${r.date}</p>
+          <p><b>Vrijeme:</b> ${r.time}</p>
+          <p><b>Teren:</b> ${r.teren}</p>
+          <p><b>Status:</b> ${r.status}</p>
+          <button class="accept">Prihvati</button>
+          <button class="reject">Odbij</button>
+        `;
+
+        // Accept button
+        div.querySelector(".accept").addEventListener("click", async () => {
+          await updateDoc(doc(db, "reservations", r.id), { status: "accepted" });
+          sendEmailDecision(r, "accepted");
+          alert("Rezervacija prihvaćena!");
+          loadReservations();
+        });
+
+        // Reject button
+        div.querySelector(".reject").addEventListener("click", async () => {
+          await updateDoc(doc(db, "reservations", r.id), { status: "rejected" });
+          sendEmailDecision(r, "rejected");
+          alert("Rezervacija odbijena!");
+          loadReservations();
+        });
+
+        reservationsList.appendChild(div);
+      });
+    }
+
+    // Send email via EmailJS
+    function sendEmailDecision(reservation, decision) {
+      emailjs.send("service_8fwmwyi","template_p01lv7f",{
+        to_email: reservation.user,
+        name: reservation.name,
+        date: reservation.date,
+        time: reservation.time,
+        teren: reservation.teren,
+        status: decision
+      }).then(() => {
+        console.log("Email sent to user!");
+      }).catch(err => console.error("Email error:", err));
+    }
+  </script>
 </body>
 </html>
