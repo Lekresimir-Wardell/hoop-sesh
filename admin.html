@@ -2,139 +2,144 @@
 <html lang="hr">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Panel - Rezervacije</title>
+  <title>Admin panel - Rezervacije</title>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h1 {
-      color: #1D428A;
-    }
+    body { font-family: Arial, sans-serif; margin:20px; background:#f5f5f5; }
+    h2 { text-align:center; }
     .reservation {
-      background: white;
-      padding: 15px;
-      margin: 10px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      width: 400px;
+      background:white; padding:15px; margin:15px auto;
+      border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+      max-width:700px;
     }
+    .reservation h3 { margin:0 0 10px; }
     button {
-      margin: 5px;
-      padding: 8px 12px;
-      cursor: pointer;
+      margin:5px; padding:6px 12px; border:none;
+      border-radius:4px; cursor:pointer;
     }
-    .accept { background: green; color: white; border: none; }
-    .reject { background: red; color: white; border: none; }
+    .accept { background:green; color:white; }
+    .reject { background:red; color:white; }
+    .join-request { margin-left:20px; padding:5px; background:#f0f0f0; border-radius:5px; }
   </style>
 </head>
 <body>
-  <h1>Admin Panel - Rezervacije</h1>
-  <div id="reservationsList"></div>
+  <h2>Admin Panel - Upravljanje rezervacijama</h2>
+  <div id="reservations"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+  import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-    // Firebase config (use same as index.html)
-    const firebaseConfig = {
-      apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
-      authDomain: "hoops-165ec.firebaseapp.com",
-      projectId: "hoops-165ec",
-      storageBucket: "hoops-165ec.firebasestorage.app",
-      messagingSenderId: "563400604791",
-      appId: "1:563400604791:web:50183bcf65de09bd019a72",
-      measurementId: "G-C3YPHXZCXN"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+  const firebaseConfig = {
+    apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
+    authDomain: "hoops-165ec.firebaseapp.com",
+    projectId: "hoops-165ec",
+    storageBucket: "hoops-165ec.appspot.com",
+    messagingSenderId: "563400604791",
+    appId: "1:563400604791:web:50183bcf65de09bd019a72",
+    measurementId: "G-C3YPHXZCXN"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-    // Init EmailJS
-    (function() {
-      emailjs.init("bHkaG3QCQ98fZq5Mu"); 
-    })();
+  (function(){ emailjs.init("bHkaG3QCQ98fZq5Mu"); })();
 
-    const reservationsList = document.getElementById("reservationsList");
+  const reservationsDiv = document.getElementById("reservations");
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        alert("Niste prijavljeni!");
-        window.location.href = "index.html";
-        return;
-      }
+  // Only allow admin email
+  onAuthStateChanged(auth, async (user) => {
+    if (!user || user.email !== "linovernik@gmail.com") {
+      document.body.innerHTML = "<h2>Pristup zabranjen</h2>";
+      return;
+    }
+    loadReservations();
+  });
 
-      // Restrict to your admin email
-      if (user.email !== "linovernik@gmail.com") {
-        alert("Nemate pristup ovoj stranici!");
-        window.location.href = "index.html";
-        return;
-      }
+  async function loadReservations() {
+    reservationsDiv.innerHTML = "";
+    const snapshot = await getDocs(collection(db, "reservations"));
+    snapshot.forEach(d => {
+      const r = d.data();
+      const id = d.id;
+      const resTime = r.timestamp.toDate().toLocaleString([], {dateStyle:"short", timeStyle:"short"});
+      const box = document.createElement("div");
+      box.classList.add("reservation");
+      box.innerHTML = `
+        <h3>${r.name} (${r.user})</h3>
+        <p><b>Teren:</b> ${r.teren}</p>
+        <p><b>Vrijeme:</b> ${resTime}</p>
+        <p><b>Status:</b> ${r.status}</p>
+        <button class="accept">Prihvati</button>
+        <button class="reject">Odbij</button>
+        <div class="joiners"><h4>Zahtjevi za pridruživanje:</h4></div>
+      `;
 
-      loadReservations();
-    });
+      // Reservation Accept/Reject
+      box.querySelector(".accept").addEventListener("click", async () => {
+        await updateDoc(doc(db,"reservations",id), {status:"accepted"});
+        sendDecisionEmail(r.user,r.name,resTime,r.teren,"Prihvaćena");
+        loadReservations();
+      });
+      box.querySelector(".reject").addEventListener("click", async () => {
+        await updateDoc(doc(db,"reservations",id), {status:"rejected"});
+        sendDecisionEmail(r.user,r.name,resTime,r.teren,"Odbijena");
+        loadReservations();
+      });
 
-    async function loadReservations() {
-      reservationsList.innerHTML = "";
-      const snapshot = await getDocs(collection(db, "reservations"));
-      snapshot.forEach(docSnap => {
-        const r = { id: docSnap.id, ...docSnap.data() };
-
-        const div = document.createElement("div");
-        div.classList.add("reservation");
-        div.innerHTML = `
-          <p><b>Ime:</b> ${r.name}</p>
-          <p><b>Datum:</b> ${r.date}</p>
-          <p><b>Vrijeme:</b> ${r.time}</p>
-          <p><b>Teren:</b> ${r.teren}</p>
-          <p><b>Status:</b> ${r.status}</p>
+      // Show join requests
+      const joinersDiv = box.querySelector(".joiners");
+      (r.joinRequests || []).forEach((j, idx) => {
+        const jr = document.createElement("div");
+        jr.classList.add("join-request");
+        jr.innerHTML = `
+          <p>${j.name} (${j.email}) - Status: ${j.status}</p>
           <button class="accept">Prihvati</button>
           <button class="reject">Odbij</button>
         `;
-
-        // Accept button
-        div.querySelector(".accept").addEventListener("click", async () => {
-          await updateDoc(doc(db, "reservations", r.id), { status: "accepted" });
-          sendEmailDecision(r, "accepted");
-          alert("Rezervacija prihvaćena!");
+        jr.querySelector(".accept").addEventListener("click", async () => {
+          r.joinRequests[idx].status = "accepted";
+          await updateDoc(doc(db,"reservations",id), {joinRequests:r.joinRequests});
+          sendJoinDecisionEmail(j.email,j.name,resTime,r.teren,"Prihvaćeno");
           loadReservations();
         });
-
-        // Reject button
-        div.querySelector(".reject").addEventListener("click", async () => {
-          await updateDoc(doc(db, "reservations", r.id), { status: "rejected" });
-          sendEmailDecision(r, "rejected");
-          alert("Rezervacija odbijena!");
+        jr.querySelector(".reject").addEventListener("click", async () => {
+          r.joinRequests[idx].status = "rejected";
+          await updateDoc(doc(db,"reservations",id), {joinRequests:r.joinRequests});
+          sendJoinDecisionEmail(j.email,j.name,resTime,r.teren,"Odbijeno");
           loadReservations();
         });
-
-        reservationsList.appendChild(div);
+        joinersDiv.appendChild(jr);
       });
-    }
 
-    // Send email via EmailJS
-    function sendEmailDecision(reservation, decision) {
-      emailjs.send("service_8fwmwyi","template_p01lv7f",{
-        to_email: reservation.user,
-        name: reservation.name,
-        date: reservation.date,
-        time: reservation.time,
-        teren: reservation.teren,
-        status: decision
-      }).then(() => {
-        console.log("Email sent to user!");
-      }).catch(err => console.error("Email error:", err));
-    }
-  </script>
+      reservationsDiv.appendChild(box);
+    });
+  }
+
+  // EmailJS send functions
+  function sendDecisionEmail(toEmail,name,dateTime,teren,status) {
+    emailjs.send("service_8fwmwyi","template_p01lv7f",{
+      to_email: toEmail,
+      name: name,
+      date: dateTime,
+      teren: teren,
+      status: status
+    });
+  }
+  function sendJoinDecisionEmail(toEmail,name,dateTime,teren,status) {
+    emailjs.send("service_8fwmwyi","template_etn1gtm",{
+      to_email: toEmail,
+      name: name,
+      date: dateTime,
+      teren: teren,
+      status: status
+    });
+  }
+</script>
 </body>
 </html>
