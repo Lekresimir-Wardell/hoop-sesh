@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+  <style>
+    body { font-family: Arial; background:#f5f5f5; padding:20px; }
+    .reservation, .join { 
+      background:white; margin:10px; padding:15px; 
+      border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1);
+    }
+    button { margin:5px; padding:6px 12px; cursor:pointer; }
+    .approved { background:green; color:white; }
+    .rejected { background:red; color:white; }
+  </style>
+</head>
+<body>
+  <h2>Admin Panel - Upravljanje rezervacijama</h2>
+  <div id="reservations"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+  import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
+    authDomain: "hoops-165ec.firebaseapp.com",
+    projectId: "hoops-165ec",
+    storageBucket: "hoops-165ec.firebasestorage.app",
+    messagingSenderId: "563400604791",
+    appId: "1:563400604791:web:50183bcf65de09bd019a72",
+    measurementId: "G-C3YPHXZCXN"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const adminEmail = "YOUR_ADMIN_EMAIL@gmail.com"; // 👈 replace with your exact email
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user && user.email === adminEmail) {
+      loadReservations();
+    } else {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    }
+  });
+
+  async function loadReservations() {
+    const snapshot = await getDocs(collection(db, "reservations"));
+    const reservations = snapshot.docs.map(docu => ({id: docu.id, ...docu.data()}));
+    const container = document.getElementById("reservations");
+    container.innerHTML = "";
+
+    reservations.forEach(r => {
+      const div = document.createElement("div");
+      div.classList.add("reservation");
+      div.innerHTML = `
+        <h3>${r.name} (${r.user})</h3>
+        <p>${r.date} ${r.time} - ${r.teren}</p>
+        <p>Status: ${r.status}</p>
+        <button class="approved">Prihvati</button>
+        <button class="rejected">Odbij</button>
+      `;
+      div.querySelector(".approved").onclick = async () => {
+        await updateDoc(doc(db,"reservations",r.id), {status:"approved"});
+        loadReservations();
+      };
+      div.querySelector(".rejected").onclick = async () => {
+        await updateDoc(doc(db,"reservations",r.id), {status:"rejected"});
+        loadReservations();
+      };
+
+      // join requests
+      if (r.joinRequests && r.joinRequests.length > 0) {
+        r.joinRequests.forEach((j, idx) => {
+          const joinDiv = document.createElement("div");
+          joinDiv.classList.add("join");
+          joinDiv.innerHTML = `
+            <p>Pridruži se: ${j.name} (${j.email}) - Status: ${j.status}</p>
+            <button class="approved">Prihvati</button>
+            <button class="rejected">Odbij</button>
+          `;
+          joinDiv.querySelector(".approved").onclick = async () => {
+            let newReqs = [...r.joinRequests];
+            newReqs[idx].status = "approved";
+            await updateDoc(doc(db,"reservations",r.id), {joinRequests: newReqs});
+            loadReservations();
+          };
+          joinDiv.querySelector(".rejected").onclick = async () => {
+            let newReqs = [...r.joinRequests];
+            newReqs[idx].status = "rejected";
+            await updateDoc(doc(db,"reservations",r.id), {joinRequests: newReqs});
+            loadReservations();
+          };
+          div.appendChild(joinDiv);
+        });
+      }
+
+      container.appendChild(div);
+    });
+  }
+</script>
+</body>
+</html>
