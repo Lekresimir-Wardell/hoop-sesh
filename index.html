@@ -14,10 +14,39 @@
       background:#f5f5f5; 
       margin:0; 
       padding:0; 
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
+    #loginSection {
+      text-align: center;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    #loginSection h2 {
+      font-size: 26px;
+      margin-bottom: 20px;
+      color: #1D428A;
+    }
+    #loginBtn {
+      padding: 14px 28px;
+      background:#1D428A;
+      color:#FFC72C;
+      border:none;
+      border-radius:8px;
+      font-size:18px;
+      font-weight: bold;
+      cursor:pointer;
+      transition: 0.3s;
+    }
+    #loginBtn:hover { background:#16336d; }
+
     #appWrapper {
-      display: flex;
+      display: none;
       justify-content: center;
       align-items: flex-start;
       width: 100%;
@@ -93,7 +122,7 @@
       box-shadow:0 2px 8px rgba(0,0,0,0.1); 
     }
 
-    input, select, textarea { 
+    input, select { 
       display:block; 
       margin:10px auto; 
       width:90%; 
@@ -111,30 +140,17 @@
       vertical-align:middle; 
     }
 
-    #loginSection {
-      text-align: center;
-      margin-top: 100px;
-    }
-    #loginBtn {
-      padding: 10px 20px;
-      background:#1D428A;
-      color:#FFC72C;
-      border:none;
-      border-radius:6px;
-      font-size:16px;
-      cursor:pointer;
-    }
-    #loginBtn:hover { background:#16336d; }
-
     #logoutBar {
       width: 100%;
       background:#1D428A;
       color:#FFC72C;
       padding: 10px;
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
       box-sizing: border-box;
+      border-radius: 8px;
+      margin-bottom: 20px;
     }
     #logoutBtn {
       background:#FFC72C;
@@ -146,15 +162,6 @@
       font-weight:bold;
     }
     #logoutBtn:hover { background:#e0b622; }
-
-    @media (max-width: 900px) {
-      #appWrapper {
-        flex-direction: column;
-      }
-      #calendarSection, #formSection {
-        flex: 0 0 100%;
-      }
-    }
   </style>
 </head>
 <body>
@@ -164,7 +171,7 @@
   <button id="loginBtn">Prijava putem Google-a</button>
 </div>
 
-<div id="appWrapper" style="display:none; flex-direction:column;">
+<div id="appWrapper" style="flex-direction:column;">
   <div id="logoutBar">
     <span id="userEmail"></span>
     <button id="logoutBtn">Odjava</button>
@@ -230,12 +237,15 @@
   let selectedDate = null;
   let currentUser = null;
 
-  // Google login
   const provider = new GoogleAuthProvider();
-  loginBtn.addEventListener("click", () => {
-    signInWithPopup(auth, provider).catch(err => {
+
+  loginBtn.addEventListener("click", async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
       alert("Login nije uspio: " + err.message);
-    });
+      console.error(err);
+    }
   });
 
   logoutBtn.addEventListener("click", () => {
