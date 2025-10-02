@@ -14,39 +14,10 @@
       background:#f5f5f5; 
       margin:0; 
       padding:0; 
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
-
-    #loginSection {
-      text-align: center;
-      background: white;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    #loginSection h2 {
-      font-size: 26px;
-      margin-bottom: 20px;
-      color: #1D428A;
-    }
-    #loginBtn {
-      padding: 14px 28px;
-      background:#1D428A;
-      color:#FFC72C;
-      border:none;
-      border-radius:8px;
-      font-size:18px;
-      font-weight: bold;
-      cursor:pointer;
-      transition: 0.3s;
-    }
-    #loginBtn:hover { background:#16336d; }
 
     #appWrapper {
-      display: none;
+      display: flex;
       justify-content: center;
       align-items: flex-start;
       width: 100%;
@@ -57,62 +28,50 @@
       box-sizing: border-box;
     }
 
-    #calendarSection {
-      flex: 0 0 60%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+    #calendarSection { flex: 0 0 80%; }
+    #formSection { flex: 0 0 20%; }
 
     #calendar { 
-      display: grid;
+      display:grid; 
       grid-template-columns: repeat(7, 1fr);
       gap: 4px;
-      width: 100%;
-      height: 50vh;
-      max-width: 100%;
-      margin: 20px auto;
+      max-width:100%; 
+      margin:20px auto; 
     }
-
-    .day, .weekday {
-      border:1px solid #ccc;
+    .day { 
+      border:1px solid #ccc; 
+      width:100%; height:80px; 
+      cursor:pointer; 
+      font-weight:bold; 
+      position:relative; 
+      text-align:center;
       display:flex;
       justify-content:center;
       align-items:center;
-      font-weight:bold;
-      position:relative;
-      cursor:pointer;
-      text-align:center;
-      padding: 5px;
+    }
+    .day:hover::after { 
+      content: attr(data-info); 
+      position:absolute; 
+      bottom:85px; 
+      left:50%; 
+      transform:translateX(-50%); 
+      background:#333; 
+      color:#fff; 
+      padding:5px; 
+      font-size:12px; 
+      border-radius:4px; 
+      white-space:pre; 
+      z-index: 10;
     }
 
-    .weekday {
-      background:#eee;
-      font-weight:bold;
-      cursor:default;
-    }
-
+    /* Status boje */
     .available { background:#1D428A; color:#FFC72C; }
     .mine { background:#6BCBFF !important; color:#1D428A !important; }
-    .reserved-other { background:orange; color:#fff; position:relative; }
+    .reserved-other { background:orange; color:#fff; }
     .pending { background:yellow; color:#000; }
     .rejected, .past { background:red; color:#fff; cursor:not-allowed; }
 
-    .join-btn {
-      position:absolute;
-      bottom:2px;
-      left:50%;
-      transform:translateX(-50%);
-      font-size:10px;
-      padding:2px 6px;
-      border:none;
-      border-radius:4px;
-      background:#fff;
-      color:#333;
-      cursor:pointer;
-    }
-    .join-btn:hover { background:#ddd; }
-
+    /* Forma */
     #reservationForm { 
       display:none; 
       margin-top:20px; 
@@ -131,6 +90,7 @@
     }
     button { padding:8px 16px; margin:5px; cursor:pointer; }
 
+    /* Legenda */
     .legend { margin-top:20px; font-weight:bold; }
     .legend span { 
       display:inline-block; 
@@ -140,77 +100,49 @@
       vertical-align:middle; 
     }
 
-    #logoutBar {
-      width: 100%;
-      background:#1D428A;
-      color:#FFC72C;
-      padding: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-sizing: border-box;
-      border-radius: 8px;
-      margin-bottom: 20px;
+    /* 📱 Responsivno */
+    @media (max-width: 900px) {
+      #appWrapper { flex-direction: column; }
+      #calendarSection, #formSection { flex: 0 0 100%; }
     }
-    #logoutBtn {
-      background:#FFC72C;
-      color:#1D428A;
-      border:none;
-      border-radius:6px;
-      padding: 6px 12px;
-      cursor:pointer;
-      font-weight:bold;
-    }
-    #logoutBtn:hover { background:#e0b622; }
   </style>
 </head>
 <body>
 
-<div id="loginSection">
-  <h2>Prijavite se za rezervaciju</h2>
-  <button id="loginBtn">Prijava putem Google-a</button>
-</div>
-
-<div id="appWrapper" style="flex-direction:column;">
-  <div id="logoutBar">
-    <span id="userEmail"></span>
-    <button id="logoutBtn">Odjava</button>
+<div id="appWrapper">
+  <div id="calendarSection">
+    <div id="calendar"></div>
+    <div class="legend">
+      <p><span style="background:#1D428A;"></span> Slobodno</p>
+      <p><span style="background:#6BCBFF;"></span> Moje rezervacije</p>
+      <p><span style="background:orange;"></span> Rezervirano (drugi)</p>
+      <p><span style="background:yellow;"></span> Pending zahtjev</p>
+      <p><span style="background:red;"></span> Prošlo / Nedostupno</p>
+    </div>
   </div>
 
-  <div style="display:flex; flex:1; width:100%; gap:20px;">
-    <div id="calendarSection">
-      <div id="calendar"></div>
-      <div class="legend">
-        <p><span style="background:#1D428A;"></span> Slobodno</p>
-        <p><span style="background:#6BCBFF;"></span> Moje rezervacije</p>
-        <p><span style="background:orange;"></span> Rezervirano (drugi)</p>
-        <p><span style="background:yellow;"></span> Pending zahtjev</p>
-        <p><span style="background:red;"></span> Prošlo / Nedostupno</p>
-      </div>
-    </div>
-
-    <div id="formSection">
-      <form id="reservationForm">
-        <h3>Rezervacija</h3>
-        <input type="text" id="name" placeholder="Vaše ime" required>
-        <input type="time" id="time" required>
-        <select id="teren" required>
-          <option value="">Odaberite teren</option>
-          <option value="Teren 1">Teren 1</option>
-          <option value="Teren 2">Teren 2</option>
-          <option value="Teren 3">Teren 3</option>
-        </select>
-        <button type="submit">Rezerviraj</button>
-      </form>
-    </div>
+  <div id="formSection">
+    <form id="reservationForm">
+      <h3>Rezervacija</h3>
+      <input type="text" id="name" placeholder="Vaše ime" required>
+      <input type="time" id="time" required>
+      <select id="teren" required>
+        <option value="">Odaberite teren</option>
+        <option value="Teren 1">Teren 1</option>
+        <option value="Teren 2">Teren 2</option>
+        <option value="Teren 3">Teren 3</option>
+      </select>
+      <button type="submit">Rezerviraj</button>
+    </form>
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
     authDomain: "hoops-165ec.firebaseapp.com",
@@ -224,123 +156,94 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // EmailJS init
+  // EmailJS init (for sending confirmation)
   (function(){ emailjs.init("rHykzq_BAVO2vvGfE"); })();
 
-  const adminEmail = "YOUR_ADMIN_EMAIL@gmail.com"; // 👈 set your admin email here
-
-  const loginSection = document.getElementById("loginSection");
-  const loginBtn = document.getElementById("loginBtn");
-  const appWrapper = document.getElementById("appWrapper");
   const calendar = document.getElementById("calendar");
   const form = document.getElementById("reservationForm");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const userEmailSpan = document.getElementById("userEmail");
-
   let selectedDate = null;
   let currentUser = null;
-
-  const provider = new GoogleAuthProvider();
-
-  loginBtn.addEventListener("click", async () => {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      alert("Login nije uspio: " + err.message + ". Provjerite da li je domena dodana u Firebase Authentication → Settings → Authorized domains.");
-    }
-  });
-
-  logoutBtn.addEventListener("click", () => {
-    signOut(auth);
-  });
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUser = user;
-      userEmailSpan.textContent = user.email;
-      loginSection.style.display = "none";
-      appWrapper.style.display = "flex";
       renderCalendar();
     } else {
-      currentUser = null;
-      loginSection.style.display = "block";
-      appWrapper.style.display = "none";
+      alert("Niste prijavljeni!");
     }
   });
 
   async function renderCalendar() {
     calendar.innerHTML = "";
-
     const today = new Date();
     const year = today.getFullYear();
     const month = today.getMonth();
 
-    const firstDay = new Date(year, month, 1);
+    const firstDay = new Date(year, month, 1).getDay();
     const lastDay = new Date(year, month + 1, 0);
-
-    const startDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
-
-    const weekdays = ["Pon", "Uto", "Sri", "Čet", "Pet", "Sub", "Ned"];
-    weekdays.forEach(d => {
-      const wd = document.createElement("div");
-      wd.classList.add("weekday");
-      wd.textContent = d;
-      calendar.appendChild(wd);
-    });
-
-    for (let i = 1; i < startDayOfWeek; i++) {
-      const empty = document.createElement("div");
-      calendar.appendChild(empty);
-    }
 
     const snapshot = await getDocs(collection(db, "reservations"));
     const reservations = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
 
-    for (let i = 1; i <= daysInMonth; i++) {
+    // Add blank days before first day of month
+    for (let b = 0; b < firstDay; b++) {
+      const empty = document.createElement("div");
+      empty.classList.add("day");
+      empty.style.visibility = "hidden";
+      calendar.appendChild(empty);
+    }
+
+    for (let i = 1; i <= lastDay.getDate(); i++) {
       const dateStr = `${year}-${month+1}-${i}`;
       const dayDiv = document.createElement("div");
       dayDiv.classList.add("day");
       dayDiv.textContent = i;
 
       const dayReservations = reservations.filter(r => r.date === dateStr);
-
       if (new Date(dateStr) < today) {
         dayDiv.classList.add("past");
       } else if (dayReservations.length > 0) {
+        let info = "";
+        dayReservations.forEach(r => {
+          info += `${r.name} - ${r.time} - ${r.teren}\n`;
+          if (r.joinRequests && r.joinRequests.length > 0) {
+            r.joinRequests.forEach(j => {
+              info += `Pridruži se: ${j.name} (${j.status})\n`;
+            });
+          }
+        });
+        dayDiv.setAttribute("data-info", info);
+
         const mine = dayReservations.find(r => r.user === currentUser.email);
         if (mine) {
           dayDiv.classList.add("mine");
         } else {
           dayDiv.classList.add("reserved-other");
-          const joinBtn = document.createElement("button");
-          joinBtn.textContent = "Pridruži se";
-          joinBtn.classList.add("join-btn");
-          joinBtn.addEventListener("click", async (e) => {
-            e.stopPropagation();
+          // Join option
+          dayDiv.addEventListener("click", async () => {
             const name = prompt("Upišite ime za pridruživanje:");
             if (!name) return;
-            const r = dayReservations[0];
+            const r = dayReservations[0]; 
             const docRef = doc(db, "reservations", r.id);
-            const newJoin = { name, email: currentUser.email, status: "pending" };
+
+            // Prevent duplicates
+            const alreadyJoined = (r.joinRequests || []).find(j => j.email === currentUser.email);
+            if (alreadyJoined) {
+              alert("Već ste poslali zahtjev!");
+              return;
+            }
+
+            const newJoin = { 
+              name, 
+              email: currentUser.email, 
+              status: "pending" 
+            };
             await updateDoc(docRef, {
               joinRequests: [...(r.joinRequests || []), newJoin]
             });
-
-            // Email to admin
-            emailjs.send("service_cs8e9oq", "template_joinreq", {
-              requester_name: name,
-              requester_email: currentUser.email,
-              date: r.date,
-              time: r.time,
-              teren: r.teren,
-              admin_email: adminEmail
-            });
-
             alert("Zahtjev poslan!");
             renderCalendar();
           });
-          dayDiv.appendChild(joinBtn);
         }
       } else {
         dayDiv.classList.add("available");
@@ -349,6 +252,7 @@
           form.style.display = "block";
         });
       }
+
       calendar.appendChild(dayDiv);
     }
   }
@@ -375,8 +279,7 @@
       name: name,
       date: selectedDate,
       time: time,
-      teren: teren,
-      admin_email: adminEmail
+      teren: teren
     });
 
     alert("Rezervacija poslana, status: pending");
