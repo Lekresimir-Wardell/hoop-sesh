@@ -9,98 +9,45 @@
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      background:#f5f5f5; 
-      margin:0; 
-      padding:0; 
-    }
+    body { font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:0; }
 
     #appWrapper {
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      width: 100%;
-      max-width: 1200px;
-      margin: auto;
-      gap: 20px;
-      padding: 20px;
-      box-sizing: border-box;
+      display: flex; justify-content: center; align-items: flex-start;
+      width: 100%; max-width: 1200px; margin: auto; gap: 20px;
+      padding: 20px; box-sizing: border-box;
     }
 
     #calendarSection { flex: 0 0 80%; }
     #formSection { flex: 0 0 20%; }
 
-    #calendar { 
-      display:grid; 
-      grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
-      max-width:100%; 
-      margin:20px auto; 
+    #calendar { display:grid; grid-template-columns: repeat(7, 1fr); gap:2px; margin:20px auto; }
+    .day {
+      border:1px solid #ccc; width:100%; height:80px;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:bold; position:relative; cursor:pointer;
     }
-    .day { 
-      border:1px solid #ccc; 
-      width:100%; height:80px; 
-      cursor:pointer; 
-      font-weight:bold; 
-      position:relative; 
-      text-align:center;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-    }
-    .day:hover::after { 
-      content: attr(data-info); 
-      position:absolute; 
-      bottom:85px; 
-      left:50%; 
-      transform:translateX(-50%); 
-      background:#333; 
-      color:#fff; 
-      padding:5px; 
-      font-size:12px; 
-      border-radius:4px; 
-      white-space:pre; 
-      z-index: 10;
+    .day:hover::after {
+      content: attr(data-info); position:absolute; bottom:85px; left:50%;
+      transform:translateX(-50%); background:#333; color:#fff;
+      padding:5px; font-size:12px; border-radius:4px; white-space:pre-line; z-index:10;
     }
 
-    /* Status boje */
     .available { background:#1D428A; color:#FFC72C; }
     .mine { background:#6BCBFF !important; color:#1D428A !important; }
     .reserved-other { background:orange; color:#fff; }
     .pending { background:yellow; color:#000; }
     .rejected, .past { background:red; color:#fff; cursor:not-allowed; }
 
-    /* Forma */
-    #reservationForm { 
-      display:none; 
-      margin-top:20px; 
-      background:white; 
-      padding:15px; 
-      border-radius:8px; 
-      box-shadow:0 2px 8px rgba(0,0,0,0.1); 
+    #reservationForm {
+      display:none; margin-top:20px; background:white;
+      padding:15px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
     }
-
-    input, select { 
-      display:block; 
-      margin:10px auto; 
-      width:90%; 
-      padding:8px; 
-      box-sizing: border-box;
-    }
+    input, select { display:block; margin:10px auto; width:90%; padding:8px; box-sizing:border-box; }
     button { padding:8px 16px; margin:5px; cursor:pointer; }
 
-    /* Legenda */
     .legend { margin-top:20px; font-weight:bold; }
-    .legend span { 
-      display:inline-block; 
-      width:20px; 
-      height:20px; 
-      margin-right:5px; 
-      vertical-align:middle; 
-    }
+    .legend span { display:inline-block; width:20px; height:20px; margin-right:5px; vertical-align:middle; }
 
-    /* 📱 Responsivno */
     @media (max-width: 900px) {
       #appWrapper { flex-direction: column; }
       #calendarSection, #formSection { flex: 0 0 100%; }
@@ -108,7 +55,6 @@
   </style>
 </head>
 <body>
-
 <div id="appWrapper">
   <div id="calendarSection">
     <div id="calendar"></div>
@@ -140,14 +86,13 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
     authDomain: "hoops-165ec.firebaseapp.com",
     projectId: "hoops-165ec",
-    storageBucket: "hoops-165ec.firebasestorage.app",
+    storageBucket: "hoops-165ec.appspot.com",
     messagingSenderId: "563400604791",
     appId: "1:563400604791:web:50183bcf65de09bd019a72",
     measurementId: "G-C3YPHXZCXN"
@@ -156,8 +101,7 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // EmailJS init (for sending confirmation)
-  (function(){ emailjs.init("rHykzq_BAVO2vvGfE"); })();
+  (function(){ emailjs.init("bHkaG3QCQ98fZq5Mu"); })();
 
   const calendar = document.getElementById("calendar");
   const form = document.getElementById("reservationForm");
@@ -165,12 +109,8 @@
   let currentUser = null;
 
   onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentUser = user;
-      renderCalendar();
-    } else {
-      alert("Niste prijavljeni!");
-    }
+    if (user) { currentUser = user; renderCalendar(); }
+    else { alert("Niste prijavljeni!"); }
   });
 
   async function renderCalendar() {
@@ -179,33 +119,38 @@
     const year = today.getFullYear();
     const month = today.getMonth();
 
-    const firstDay = new Date(year, month, 1).getDay();
+    const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
     const snapshot = await getDocs(collection(db, "reservations"));
     const reservations = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
 
-    // Add blank days before first day of month
-    for (let b = 0; b < firstDay; b++) {
+    // Add empty slots until first weekday
+    for (let i=0; i<firstDay.getDay(); i++) {
       const empty = document.createElement("div");
-      empty.classList.add("day");
-      empty.style.visibility = "hidden";
       calendar.appendChild(empty);
     }
 
     for (let i = 1; i <= lastDay.getDate(); i++) {
-      const dateStr = `${year}-${month+1}-${i}`;
       const dayDiv = document.createElement("div");
       dayDiv.classList.add("day");
       dayDiv.textContent = i;
 
-      const dayReservations = reservations.filter(r => r.date === dateStr);
-      if (new Date(dateStr) < today) {
+      const dayReservations = reservations.filter(r => {
+        const resDate = r.timestamp.toDate();
+        return resDate.getFullYear() === year &&
+               resDate.getMonth() === month &&
+               resDate.getDate() === i;
+      });
+
+      const currentDay = new Date(year, month, i);
+      if (currentDay < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
         dayDiv.classList.add("past");
       } else if (dayReservations.length > 0) {
         let info = "";
         dayReservations.forEach(r => {
-          info += `${r.name} - ${r.time} - ${r.teren}\n`;
+          const resTime = r.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          info += `${r.name} - ${resTime} - ${r.teren}\n`;
           if (r.joinRequests && r.joinRequests.length > 0) {
             r.joinRequests.forEach(j => {
               info += `Pridruži se: ${j.name} (${j.status})\n`;
@@ -219,25 +164,17 @@
           dayDiv.classList.add("mine");
         } else {
           dayDiv.classList.add("reserved-other");
-          // Join option
           dayDiv.addEventListener("click", async () => {
             const name = prompt("Upišite ime za pridruživanje:");
             if (!name) return;
-            const r = dayReservations[0]; 
+            const r = dayReservations[0];
             const docRef = doc(db, "reservations", r.id);
 
-            // Prevent duplicates
-            const alreadyJoined = (r.joinRequests || []).find(j => j.email === currentUser.email);
-            if (alreadyJoined) {
-              alert("Već ste poslali zahtjev!");
-              return;
-            }
+            // prevent duplicate joins
+            const alreadyJoined = (r.joinRequests || []).some(j => j.email === currentUser.email);
+            if (alreadyJoined) { alert("Već ste poslali zahtjev!"); return; }
 
-            const newJoin = { 
-              name, 
-              email: currentUser.email, 
-              status: "pending" 
-            };
+            const newJoin = { name, email: currentUser.email, status: "pending" };
             await updateDoc(docRef, {
               joinRequests: [...(r.joinRequests || []), newJoin]
             });
@@ -248,11 +185,10 @@
       } else {
         dayDiv.classList.add("available");
         dayDiv.addEventListener("click", () => {
-          selectedDate = dateStr;
+          selectedDate = `${year}-${month+1}-${i}`;
           form.style.display = "block";
         });
       }
-
       calendar.appendChild(dayDiv);
     }
   }
@@ -265,17 +201,17 @@
     const time = document.getElementById("time").value;
     const teren = document.getElementById("teren").value;
 
+    const selectedDateTime = new Date(`${selectedDate}T${time}`);
     await addDoc(collection(db, "reservations"), {
-      date: selectedDate,
+      timestamp: Timestamp.fromDate(selectedDateTime),
       name,
-      time,
       teren,
       user: currentUser.email,
       status: "pending",
       joinRequests: []
     });
 
-    emailjs.send("service_cs8e9oq","template_phcx5cs",{
+    emailjs.send("service_8fwmwyi","template_p01lv7f",{
       name: name,
       date: selectedDate,
       time: time,
