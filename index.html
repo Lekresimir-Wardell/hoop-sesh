@@ -1,196 +1,303 @@
 <!DOCTYPE html>
 <html lang="hr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>Rezervacija termina</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+
+  <!-- EmailJS -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      background:#f5f5f5; 
-      margin:0; 
-      padding:0; 
+    :root{
+      --brand:#1D428A;
+      --accent:#FFC72C;
+      --muted:#6b7280;
+      --card:#ffffff;
+      --bg:#f5f7fb;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Arial,Helvetica,sans-serif;
+      background:var(--bg);
+      color:#111;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
     }
 
-    #loginWrapper {
+    /* Centered login */
+    #loginWrapper{
+      min-height:100vh;
       display:flex;
-      justify-content:center;
       align-items:center;
-      height:100vh;
+      justify-content:center;
+      padding:24px;
     }
-    #loginBox {
-      background:white;
-      padding:40px;
+    #loginBox{
+      width:420px;
+      max-width:95%;
+      background:var(--card);
       border-radius:12px;
-      box-shadow:0 4px 20px rgba(0,0,0,0.2);
+      padding:28px;
+      box-shadow:0 10px 30px rgba(20,30,60,0.08);
       text-align:center;
-      max-width:400px;
-      width:100%;
     }
-    #loginBox h2 { margin-bottom:20px; }
-    #googleLoginBtn {
-      padding:12px 24px;
-      background:#1D428A;
-      color:#FFC72C;
-      font-size:16px;
-      font-weight:bold;
+    #loginBox h1{margin:0 0 8px;font-size:20px;color:var(--brand)}
+    #loginBox p{margin:0 0 20px;color:var(--muted)}
+
+    #googleLoginBtn{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 16px;
+      background:var(--brand);
+      color:var(--accent);
       border:none;
       border-radius:8px;
       cursor:pointer;
+      font-weight:600;
+      font-size:15px;
     }
+    #googleLoginBtn img{width:18px;height:18px}
 
-    #appWrapper {
-      display:none; /* hidden until login */
-      justify-content: center;
-      align-items: flex-start;
-      width: 100%;
-      max-width: 1200px;
-      margin: auto;
-      gap: 20px;
-      padding: 20px;
-      box-sizing: border-box;
+    /* App layout */
+    #app{
+      display:none;
+      max-width:1200px;
+      margin:20px auto;
+      padding:20px;
+      gap:20px;
     }
-
-    #calendarSection { flex: 0 0 80%; }
-    #formSection { flex: 0 0 20%; }
-
-    #calendar { 
-      display:grid; 
-      grid-template-columns: repeat(7, 1fr);
-      gap:4px;
-      max-width:100%;
-      margin:20px auto; 
-    }
-    .day { 
-      border:1px solid #ccc; 
-      height:80px; 
-      cursor:pointer; 
-      font-weight:bold; 
-      position:relative; 
-      text-align:center;
+    header.appHeader{
       display:flex;
-      justify-content:center;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:12px;
+    }
+    .brand{
+      display:flex;align-items:center;gap:12px;
+    }
+    .brand h2{margin:0;color:var(--brand)}
+    .userBar{display:flex;align-items:center;gap:10px}
+    .userEmail{color:var(--muted);font-size:14px}
+    .logoutBtn{
+      background:var(--accent);
+      color:var(--brand);
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:700;
+    }
+
+    /* Main content */
+    .main{
+      display:flex;
+      gap:20px;
+      align-items:flex-start;
+    }
+    .calendarCard{
+      background:var(--card);
+      border-radius:12px;
+      padding:16px;
+      flex: 1 1 65%;
+      box-shadow:0 6px 18px rgba(20,30,60,0.06);
+    }
+    .controls{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    .monthNav{
+      display:flex;
+      gap:8px;
       align-items:center;
     }
-    .day:hover::after { 
-      content: attr(data-info); 
-      position:absolute; 
-      bottom:85px; 
-      left:50%; 
-      transform:translateX(-50%); 
-      background:#333; 
-      color:#fff; 
-      padding:5px; 
-      font-size:12px; 
-      border-radius:4px; 
-      white-space:pre-line; 
-      z-index: 10;
+    .navBtn{
+      padding:6px 10px;border-radius:8px;border:none;cursor:pointer;background:#efefef;
+    }
+    .monthTitle{font-weight:700;color:#0b1220}
+
+    .weekdays{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:4px;
+      margin-top:8px;
+    }
+    .weekday{
+      text-align:center;padding:6px 4px;font-weight:700;color:var(--muted);font-size:13px;
     }
 
-    /* Status boje */
-    .available { background:#1D428A; color:#FFC72C; }
-    .mine { background:#6BCBFF !important; color:#1D428A !important; }
-    .reserved-other { background:orange; color:#fff; }
-    .pending { background:yellow; color:#000; }
-    .rejected, .past { background:red; color:#fff; cursor:not-allowed; }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:6px;
+      margin-top:8px;
+    }
+    .day{
+      min-height:84px;border-radius:8px;border:1px solid #e6e9ef;
+      background:white;display:flex;flex-direction:column;
+      padding:6px;justify-content:flex-start;gap:6px;position:relative;
+      cursor:pointer;
+    }
+    .day.empty{background:transparent;border:none;cursor:default}
+    .day .num{font-weight:700}
+    .day .items{font-size:12px;color:#222;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+    .badge{display:inline-block;padding:4px 6px;border-radius:6px;font-size:12px}
 
-    /* Forma */
-    #reservationForm { 
-      display:none; 
-      margin-top:20px; 
-      background:white; 
-      padding:15px; 
-      border-radius:8px; 
-      box-shadow:0 2px 8px rgba(0,0,0,0.1); 
+    .available{background:linear-gradient(90deg,#e9eefb,#f7f9ff)}
+    .mine{background:#e6fbff;border:2px solid #6BCBFF}
+    .reserved-other{background:linear-gradient(90deg,#fff4e0,#fff8f0)}
+    .past{opacity:0.5;pointer-events:none}
+
+    .joinBtnLocal{
+      margin-top:auto;background:transparent;border:1px solid #ccc;padding:6px;border-radius:6px;font-size:12px;cursor:pointer;
     }
 
-    input, select { 
-      display:block; 
-      margin:10px auto; 
-      width:90%; 
-      padding:8px; 
-      box-sizing: border-box;
+    /* right panel - form */
+    .formCard{
+      background:var(--card);
+      border-radius:12px;
+      padding:16px;
+      width:320px;
+      box-shadow:0 6px 18px rgba(20,30,60,0.06);
+      flex:0 0 320px;
     }
-    button { padding:8px 16px; margin:5px; cursor:pointer; }
+    .formCard h3{margin-top:0}
+    .formRow{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+    input[type="text"],input[type="time"],select,textarea{
+      padding:10px;border-radius:8px;border:1px solid #e6e9ef;font-size:14px;width:100%;
+    }
+    .primaryBtn{background:var(--brand);color:var(--accent);border:none;padding:10px;border-radius:8px;cursor:pointer;font-weight:700}
+    .secondary{background:#f0f0f0;border:none;padding:8px;border-radius:8px;cursor:pointer}
 
-    /* Legenda */
-    .legend { margin-top:20px; font-weight:bold; }
-    .legend span { 
-      display:inline-block; 
-      width:20px; 
-      height:20px; 
-      margin-right:5px; 
-      vertical-align:middle; 
+    .small{font-size:13px;color:var(--muted)}
+
+    /* tooltip pre wrapping */
+    .tooltip{
+      white-space:pre-line;
+      font-size:13px;
+      color:#fff;
+      background:#222;
+      padding:6px 8px;border-radius:6px;
     }
 
-    @media (max-width: 900px) {
-      #appWrapper { flex-direction: column; }
-      #calendarSection, #formSection { flex: 0 0 100%; }
+    @media (max-width:900px){
+      .main{flex-direction:column}
+      .formCard{width:100%}
+      #app{padding:12px}
     }
   </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="loginWrapper">
-  <div id="loginBox">
-    <h2>Prijava</h2>
-    <button id="googleLoginBtn">Prijavi se s Googleom</button>
-  </div>
-</div>
-
-<!-- APP -->
-<div id="appWrapper">
-  <div id="calendarSection">
-    <div id="calendar"></div>
-    <div class="legend">
-      <p><span style="background:#1D428A;"></span> Slobodno</p>
-      <p><span style="background:#6BCBFF;"></span> Moje rezervacije</p>
-      <p><span style="background:orange;"></span> Rezervirano (drugi)</p>
-      <p><span style="background:yellow;"></span> Pending zahtjev</p>
-      <p><span style="background:red;"></span> Prošlo / Nedostupno</p>
+  <!-- LOGIN -->
+  <div id="loginWrapper">
+    <div id="loginBox" role="dialog" aria-labelledby="loginTitle">
+      <h1 id="loginTitle">Prijava</h1>
+      <p>Prijavite se putem Google računa da biste rezervirali teren.</p>
+      <button id="googleLoginBtn">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" />
+        Prijavi se s Googleom
+      </button>
     </div>
   </div>
 
-  <div id="formSection">
-    <form id="reservationForm">
-      <h3>Rezervacija</h3>
-      <input type="time" id="time" required>
-      <select id="teren" required>
-        <option value="">Odaberite teren</option>
-        <option value="Teren 1">Jadran</option>
-        <option value="Teren 2">secrete</option>
-        <option value="Teren 3">maj</option>
-      </select>
-      <button type="submit">Rezerviraj</button>
-    </form>
+  <!-- APP -->
+  <div id="app">
+    <header class="appHeader">
+      <div class="brand">
+        <h2>Rezervacije</h2>
+        <div class="small">Upravljanje terminima</div>
+      </div>
+
+      <div class="userBar">
+        <div class="userEmail" id="userEmail">—</div>
+        <button id="logoutBtn" class="logoutBtn">Odjava</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="calendarCard" aria-label="Kalendar">
+        <div class="controls">
+          <div class="monthNav">
+            <button id="prevMonth" class="navBtn">&lt; Prethodni</button>
+            <div class="monthTitle" id="monthTitle">Rujan 2025</div>
+            <button id="nextMonth" class="navBtn">Sljedeći &gt;</button>
+          </div>
+          <div class="small">Kliknite dan za rezervaciju ili pregled</div>
+        </div>
+
+        <div class="weekdays" id="weekdays"></div>
+        <div class="grid" id="daysGrid" role="grid"></div>
+      </section>
+
+      <aside class="formCard" aria-label="Forma za rezervaciju">
+        <h3>Rezerviraj termin</h3>
+        <div class="small">Odabrani datum: <span id="selectedDateText">—</span></div>
+
+        <form id="reservationForm">
+          <div class="formRow">
+            <label class="small">Ime (možete promijeniti)</label>
+            <input type="text" id="nameInput" required />
+          </div>
+
+          <div class="formRow">
+            <label class="small">Vrijeme</label>
+            <input type="time" id="timeInput" required />
+          </div>
+
+          <div class="formRow">
+            <label class="small">Teren</label>
+            <select id="terenSelect" required>
+              <option value="">Odaberite teren</option>
+              <option>Teren 1</option>
+              <option>Teren 2</option>
+              <option>Teren 3</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button type="submit" class="primaryBtn">Rezerviraj</button>
+            <button type="button" id="cancelBtn" class="secondary">Odustani</button>
+          </div>
+
+          <div style="margin-top:12px" id="formMsg" class="small"></div>
+        </form>
+      </aside>
+    </main>
   </div>
-</div>
 
 <script type="module">
+  // Firebase imports (modular)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-  import { 
-    getAuth, 
-    onAuthStateChanged, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
-    signOut 
+  import {
+    getAuth,
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-  import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    getDocs, 
-    query, 
-    updateDoc, 
-    doc 
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    updateDoc,
+    doc,
+    Timestamp
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-  // Firebase config
+  // ---------- CONFIG (your keys) ----------
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
     authDomain: "hoops-165ec.firebaseapp.com",
@@ -200,133 +307,374 @@
     appId: "1:563400604791:web:50183bcf65de09bd019a72",
     measurementId: "G-C3YPHXZCXN"
   };
+
+  // EmailJS config (public key)
+  const EMAILJS_USER_ID = "bHkaG3QCQ98fZq5Mu";
+  const EMAILJS_SERVICE = "service_8fwmwyi";
+  const EMAILJS_TEMPLATE_RESERVATION = "template_p01lv7f"; // reservation confirmation template
+  const EMAILJS_TEMPLATE_JOINADMIN = "template_p01lv7f"; // reuse for admin notification (or change)
+  // NOTE: admin replies use template_etn1gtm in admin panel
+
+  // Initialize
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
 
   // EmailJS init
-  (function(){ emailjs.init("bHkaG3QCQ98fZq5Mu"); })();
+  (function(){ emailjs.init(EMAILJS_USER_ID); })();
 
+  // DOM refs
   const loginWrapper = document.getElementById("loginWrapper");
-  const appWrapper = document.getElementById("appWrapper");
-  const loginBtn = document.getElementById("googleLoginBtn");
-  const calendar = document.getElementById("calendar");
-  const form = document.getElementById("reservationForm");
+  const loginBox = document.getElementById("loginBox");
+  const googleLoginBtn = document.getElementById("googleLoginBtn");
 
-  let selectedDate = null;
+  const appRoot = document.getElementById("app");
+  const userEmailEl = document.getElementById("userEmail");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  const weekdaysContainer = document.getElementById("weekdays");
+  const daysGrid = document.getElementById("daysGrid");
+  const monthTitle = document.getElementById("monthTitle");
+  const prevMonthBtn = document.getElementById("prevMonth");
+  const nextMonthBtn = document.getElementById("nextMonth");
+
+  const reservationForm = document.getElementById("reservationForm");
+  const nameInput = document.getElementById("nameInput");
+  const timeInput = document.getElementById("timeInput");
+  const terenSelect = document.getElementById("terenSelect");
+  const selectedDateText = document.getElementById("selectedDateText");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const formMsg = document.getElementById("formMsg");
+
+  // State
   let currentUser = null;
+  let visibleYear = (new Date()).getFullYear();
+  let visibleMonth = (new Date()).getMonth(); // 0-based
+  let selectedDay = null; // Date object (year,month,day)
+  let reservationsCache = []; // cached docs
 
-  // Google login
-  loginBtn.addEventListener("click", async () => {
-    try {
+  // Weekday labels (Monday-first)
+  const WEEKDAYS = ["Pon","Uto","Sri","Čet","Pet","Sub","Ned"];
+
+  // ---------- Auth flow ----------
+  googleLoginBtn.addEventListener("click", async () => {
+    try{
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-    } catch (error) {
-      alert("Greška prilikom prijave: " + error.message);
+    } catch(err){
+      console.error("Login error", err);
+      alert("Prijava nije uspjela: " + (err.message || err));
     }
   });
 
-  // Auth state change
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+  });
+
   onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUser = user;
       loginWrapper.style.display = "none";
-      appWrapper.style.display = "flex";
-      renderCalendar();
+      appRoot.style.display = "block";
+      userEmailEl.textContent = user.email;
+      // prefill name input
+      nameInput.value = user.displayName || "";
+      // render calendar
+      loadReservations().then(()=> renderCalendar());
     } else {
       currentUser = null;
       loginWrapper.style.display = "flex";
-      appWrapper.style.display = "none";
+      appRoot.style.display = "none";
     }
   });
 
-  async function renderCalendar() {
-    calendar.innerHTML = "";
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
+  // ---------- Calendar rendering ----------
+  // helpers
+  function monthYearTitle(year, month) {
+    return new Date(year, month, 1).toLocaleString('hr-HR', { month: 'long', year: 'numeric' });
+  }
 
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+  function startOfMonthWeekday(year, month) {
+    // return 0..6 where 0 = Monday (we want Monday first)
+    const jsDay = new Date(year, month, 1).getDay(); // 0 Sunday .. 6 Saturday
+    // convert so Monday=0..Sunday=6
+    return (jsDay === 0) ? 6 : jsDay - 1;
+  }
 
-    const snapshot = await getDocs(collection(db, "reservations"));
-    const reservations = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+  function formatLocalDate(y,m,d){
+    return `${String(d).padStart(2,'0')}.${String(m+1).padStart(2,'0')}.${y}`;
+  }
 
-    // Add empty slots for weekday alignment
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      const empty = document.createElement("div");
-      empty.classList.add("day");
-      empty.style.visibility = "hidden";
-      calendar.appendChild(empty);
-    }
-
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      const dateStr = `${year}-${month+1}-${i}`;
-      const dayDiv = document.createElement("div");
-      dayDiv.classList.add("day");
-      dayDiv.textContent = i;
-
-      const dayReservations = reservations.filter(r => r.date === dateStr);
-      if (new Date(year, month, i) < today) {
-        dayDiv.classList.add("past");
-      } else if (dayReservations.length > 0) {
-        let info = "";
-        dayReservations.forEach(r => {
-          info += `${r.name} - ${r.time} - ${r.teren}\n`;
-        });
-        dayDiv.setAttribute("data-info", info);
-
-        const mine = dayReservations.find(r => r.user === currentUser.email);
-        if (mine) {
-          dayDiv.classList.add("mine");
-        } else {
-          dayDiv.classList.add("reserved-other");
-        }
-      } else {
-        dayDiv.classList.add("available");
-        dayDiv.addEventListener("click", () => {
-          selectedDate = dateStr;
-          form.style.display = "block";
-        });
-      }
-
-      calendar.appendChild(dayDiv);
+  async function loadReservations(){
+    // load all reservations into cache
+    reservationsCache = [];
+    try {
+      const snapshot = await getDocs(collection(db,"reservations"));
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        // keep id and timestamp if exists
+        reservationsCache.push({ id: docSnap.id, ...data });
+      });
+    } catch(err){
+      console.error("Error loading reservations", err);
+      reservationsCache = [];
     }
   }
 
-  // Reservation form
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!selectedDate) return;
+  function reservationsForDay(year,month,day){
+    return reservationsCache.filter(r => {
+      if (!r.timestamp) return false;
+      const dt = ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+      return dt.getFullYear()===year && dt.getMonth()===month && dt.getDate()===day;
+    });
+  }
 
-    const time = document.getElementById("time").value;
-    const teren = document.getElementById("teren").value;
+  function renderCalendar(){
+    daysGrid.innerHTML = "";
+    weekdaysContainer.innerHTML = "";
 
-    await addDoc(collection(db, "reservations"), {
-      date: selectedDate,
-      name: currentUser.displayName,
-      email: currentUser.email,
-      time,
-      teren,
-      user: currentUser.email,
-      status: "pending",
-      joinRequests: []
+    // weekdays header
+    WEEKDAYS.forEach(w => {
+      const wEl = document.createElement("div");
+      wEl.className = "weekday";
+      wEl.textContent = w;
+      weekdaysContainer.appendChild(wEl);
     });
 
-    emailjs.send("service_8fwmwyi","template_p01lv7f",{
-      to_email: currentUser.email,
-      name: currentUser.displayName,
-      date: selectedDate,
-      teren: teren,
-      status: "pending"
-    });
+    const year = visibleYear;
+    const month = visibleMonth;
+    monthTitle.textContent = monthYearTitle(year, month);
 
-    alert("Rezervacija poslana, status: pending");
-    form.reset();
-    form.style.display = "none";
+    const firstWeekday = startOfMonthWeekday(year, month); // 0..6 (Monday..Sunday)
+    const lastDay = new Date(year, month+1, 0).getDate();
+
+    // render empty slots before first day
+    for (let i=0;i<firstWeekday;i++){
+      const empty = document.createElement("div");
+      empty.className = "day empty";
+      daysGrid.appendChild(empty);
+    }
+
+    const today = new Date();
+    for (let d=1; d<=lastDay; d++){
+      const dayEl = document.createElement("div");
+      dayEl.className = "day";
+      const dayNum = document.createElement("div");
+      dayNum.className = "num";
+      dayNum.textContent = d;
+      dayEl.appendChild(dayNum);
+
+      // reservations for that day
+      const dayRes = reservationsForDay(year, month, d);
+
+      const items = document.createElement("div");
+      items.className = "items";
+      if (dayRes.length>0){
+        dayRes.slice(0,3).forEach(r => {
+          const dt = r.timestamp && ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+          const t = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          const item = document.createElement("div");
+          item.textContent = `${r.name} — ${t} — ${r.teren}`;
+          items.appendChild(item);
+        });
+        if (dayRes.length>3){
+          const more = document.createElement("div");
+          more.textContent = `+${dayRes.length-3} više...`;
+          more.style.color = "#666"; more.style.fontSize="12px";
+          items.appendChild(more);
+        }
+        dayEl.appendChild(items);
+      }
+
+      // tooltip with details
+      if (dayRes.length>0){
+        let info = "";
+        dayRes.forEach(r => {
+          const dt = r.timestamp && ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+          const t = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          info += `${r.name} — ${t} — ${r.teren}\n`;
+          if (r.joinRequests && r.joinRequests.length>0){
+            r.joinRequests.forEach(j => {
+              info += `  → Pridruži se: ${j.name} (${j.status})\n`;
+            });
+          }
+        });
+        dayEl.setAttribute("data-tooltip", info.trim());
+        // show tooltip on hover via custom element
+        dayEl.addEventListener("mouseenter", (e)=>{
+          const tt = document.createElement("div");
+          tt.className="tooltip";
+          tt.id = "tmpTooltip";
+          tt.textContent = e.currentTarget.getAttribute("data-tooltip");
+          document.body.appendChild(tt);
+          const rect = e.currentTarget.getBoundingClientRect();
+          tt.style.position="absolute";
+          tt.style.left = (rect.left + rect.width/2 - tt.offsetWidth/2) + "px";
+          tt.style.top = (rect.top - tt.offsetHeight - 10) + "px";
+        });
+        dayEl.addEventListener("mouseleave", ()=>{
+          const ttd = document.getElementById("tmpTooltip");
+          if (ttd) ttd.remove();
+        });
+      }
+
+      // status classes
+      const slotDate = new Date(year, month, d);
+      const slotIsPast = new Date(today.getFullYear(), today.getMonth(), today.getDate()) > slotDate;
+      if (slotIsPast) dayEl.classList.add("past");
+      else if (dayRes.length===0) dayEl.classList.add("available");
+      else {
+        // if any reservation belongs to current user, mark mine
+        const mine = dayRes.find(r => r.user === (currentUser && currentUser.email));
+        if (mine) dayEl.classList.add("mine");
+        else dayEl.classList.add("reserved-other");
+      }
+
+      // click behavior
+      dayEl.addEventListener("click", () => {
+        if (slotIsPast) return;
+        selectedDay = new Date(year, month, d);
+        selectedDateText.textContent = formatLocalDate(year,month,d);
+        reservationForm.style.display = "block";
+        // pre-fill name/time if user has displayName / email
+        nameInput.value = currentUser.displayName || nameInput.value;
+      });
+
+      // If there is a reservation and not mine, show a small join button
+      if (!slotIsPast && dayRes.length>0){
+        const mine = dayRes.find(r => r.user === (currentUser && currentUser.email));
+        if (!mine){
+          const joinBtn = document.createElement("button");
+          joinBtn.className = "joinBtnLocal";
+          joinBtn.textContent = "Pridruži se";
+          joinBtn.addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            // join first reservation of that day (business rule)
+            const r = dayRes[0];
+            // prevent duplicate join
+            const already = (r.joinRequests || []).some(j => j.email === (currentUser && currentUser.email));
+            if (already){
+              alert("Već ste poslali zahtjev za pridruživanje ovoj rezervaciji.");
+              return;
+            }
+            const joinName = prompt("Upišite ime za pridruživanje:");
+            if (!joinName) return;
+            const docRef = doc(db, "reservations", r.id);
+            const newJoin = { name: joinName, email: currentUser.email, status: "pending" };
+            await updateDoc(docRef, {
+              joinRequests: [...(r.joinRequests || []), newJoin]
+            });
+            // notify admin (send small email) - reuse reservation template for admin alert
+            try {
+              await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_JOINADMIN, {
+                to_email: "linovernik@gmail.com",
+                name: joinName,
+                date: formatLocalDate(year,month,d),
+                time: (r.timestamp && ('toDate' in r.timestamp) ? r.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : "nepoznato"),
+                teren: r.teren
+              });
+            } catch(e){ console.warn("EmailJS admin notify failed", e); }
+            alert("Zahtjev poslan!");
+            await loadReservations();
+            renderCalendar();
+          });
+          dayEl.appendChild(joinBtn);
+        }
+      }
+
+      daysGrid.appendChild(dayEl);
+    }
+  }
+
+  // prev / next handlers
+  prevMonthBtn.addEventListener("click", () => {
+    visibleMonth--;
+    if (visibleMonth < 0){ visibleMonth = 11; visibleYear--; }
     renderCalendar();
   });
+  nextMonthBtn.addEventListener("click", () => {
+    visibleMonth++;
+    if (visibleMonth > 11){ visibleMonth = 0; visibleYear++; }
+    renderCalendar();
+  });
+
+  // ---------- Reservation form submit ----------
+  reservationForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!selectedDay) { formMsg.textContent = "Odaberite datum iz kalendara."; return; }
+    if (!currentUser) { formMsg.textContent = "Morate biti prijavljeni."; return; }
+
+    const name = nameInput.value.trim();
+    const timeVal = timeInput.value;
+    const teren = terenSelect.value;
+
+    if (!name || !timeVal || !teren){ formMsg.textContent = "Ispunite sva polja."; return; }
+    formMsg.textContent = "Spremanje…";
+
+    // combine selectedDay + timeVal into Date
+    const [hh,mm] = timeVal.split(":").map(s => parseInt(s,10));
+    const dt = new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), hh, mm);
+
+    // Prevent double booking at same timestamp for same teren (simple check)
+    const clash = reservationsCache.find(r => {
+      if (!r.timestamp) return false;
+      const rdt = ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+      return Math.abs(rdt.getTime() - dt.getTime()) < (1000*60*60) && r.teren === teren; // 1h window
+    });
+    if (clash){
+      formMsg.textContent = "Postoji rezervacija u istom terminu za odabrani teren.";
+      return;
+    }
+
+    try {
+      await addDoc(collection(db,"reservations"), {
+        timestamp: Timestamp.fromDate(dt),
+        name,
+        teren,
+        user: currentUser.email,
+        status: "pending",
+        joinRequests: []
+      });
+
+      // Notify user via EmailJS (reservation confirmation)
+      try {
+        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_RESERVATION, {
+          to_email: currentUser.email,
+          name: name,
+          date: formatLocalDate(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate()),
+          time: timeVal,
+          teren: teren,
+          status: "pending"
+        });
+      } catch(e){
+        console.warn("EmailJS send failed", e);
+      }
+
+      formMsg.textContent = "Rezervirano — status pending.";
+      reservationForm.reset();
+      selectedDateText.textContent = "—";
+      selectedDay = null;
+
+      // refresh cache & calendar
+      await loadReservations();
+      renderCalendar();
+
+    } catch(err){
+      console.error("Add reservation error", err);
+      formMsg.textContent = "Greška pri spremanju. Pokušajte ponovno.";
+    }
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    reservationForm.reset();
+    selectedDateText.textContent = "—";
+    selectedDay = null;
+    formMsg.textContent = "";
+    reservationForm.style.display = "none";
+  });
+
+  // initial render (weekday headers prefilled)
+  // nothing to do here: calendar will render after user login
 </script>
 </body>
 </html>
-
