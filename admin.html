@@ -242,17 +242,23 @@ async function loadJoinRequests() {
   });
 }
 
-// ----------------- UPDATE JOIN REQUEST -----------------
+import { getDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
 async function updateJoinRequest(reservationId, joinIndex, j, status) {
   const docRef = doc(db, "reservations", reservationId);
 
-  // update joinRequests array
-  const snapshot = await getDocs(collection(db, "reservations"));
-  const docSnap = await docRef.get();
-  const reservationData = (await docRef.get()).data();
-  const updatedJoinRequests = [...reservationData.joinRequests];
+  // fetch the reservation doc
+  const docSnap = await getDoc(docRef);
+  if (!docSnap.exists()) {
+    console.error("Reservation not found:", reservationId);
+    return;
+  }
+
+  const reservationData = docSnap.data();
+  const updatedJoinRequests = [...(reservationData.joinRequests || [])];
   updatedJoinRequests[joinIndex] = { ...updatedJoinRequests[joinIndex], status };
 
+  // update joinRequests array in Firestore
   await updateDoc(docRef, { joinRequests: updatedJoinRequests });
 
   if (j.email) {
@@ -272,6 +278,7 @@ async function updateJoinRequest(reservationId, joinIndex, j, status) {
 
   loadJoinRequests();
 }
+
 
 </script>
 </body>
