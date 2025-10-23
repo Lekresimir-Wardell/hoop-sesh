@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin - Rezervacije</title>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+ 
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
   <style>
@@ -101,20 +99,11 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
   import { 
-    getAuth, 
-    onAuthStateChanged, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
-    signOut 
+    getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut 
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
   import { 
-    getFirestore, 
-    collection, 
-    getDocs, 
-    updateDoc, 
-    doc 
+    getFirestore, collection, getDocs, updateDoc, doc, deleteDoc 
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
-
   // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
@@ -200,7 +189,7 @@
   });
 }
 
-  }
+  
 
  async function updateReservation(id, r, status) {
   const docRef = doc(db, "reservations", id);
