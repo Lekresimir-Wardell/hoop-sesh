@@ -201,10 +201,11 @@ async function updateReservation(id, r, status) {
     try {
       await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
         to_email: email,
-        name: r.name,
+        user_name: r.name,
         date: r.date,
+        time: r.time;
         teren: r.teren,
-        status: status
+        decision: status
       });
       console.log("✅ Email sent to", email);
     } catch (err) {
@@ -261,14 +262,14 @@ async function updateJoinRequest(reservationId, joinIndex, j, status) {
   // update joinRequests array in Firestore
   await updateDoc(docRef, { joinRequests: updatedJoinRequests });
 
-  if (j.email) {
+  if (email) {
     try {
       await emailjs.send("service_8fwmwyi", "template_etn1gtm", {
-        to_email: j.email,
-        name: j.name,
-        status: status
+        to_email: email,
+        user_name: j.name,
+        decision: status
       });
-      console.log("✅ Email sent to", j.email);
+      console.log("✅ Email sent to", email);
     } catch(err) {
       console.error("❌ Email error:", err);
     }
