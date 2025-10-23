@@ -637,19 +637,7 @@
         joinRequests: []
       });
 
-      // Notify user via EmailJS (reservation confirmation)
-      try {
-        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_RESERVATION, {
-          to_email: currentUser.email,
-          name: name,
-          date: formatLocalDate(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate()),
-          time: timeVal,
-          teren: teren,
-          status: "pending"
-        });
-      } catch(e){
-        console.warn("EmailJS send failed", e);
-      }
+     
 
       formMsg.textContent = "Rezervirano — status pending.";
       reservationForm.reset();
@@ -679,4 +667,5 @@
 </script>
 </body>
 </html>
+
 
