@@ -167,17 +167,19 @@
   });
 
   // Rezervacije
- async function loadReservations() {
+// ----------------- LOAD RESERVATIONS -----------------
+async function loadReservations() {
   reservationsList.innerHTML = "";
   const snapshot = await getDocs(collection(db, "reservations"));
   snapshot.forEach(docSnap => {
     const r = docSnap.data();
-    if (r.status === "pending" || !r.status) {  // show only pending
+    const email = r.user; // use correct email field
+    if (r.status === "pending" || !r.status) {
       const div = document.createElement("div");
       div.classList.add("reservation");
       div.innerHTML = `
-        <p><b>${r.name}</b> (${r.email})<br>
-        Datum: ${r.date}, Vrijeme: ${r.time}, Teren: ${r.teren}</p>
+        <p><b>${r.name}</b> (${email})<br>
+        Datum: ${r.date || "—"}, Vrijeme: ${r.time || "—"}, Teren: ${r.teren}</p>
         <p>Status: ${r.status || "pending"}</p>
         <button class="accept">Prihvati</button>
         <button class="reject">Odbij</button>
@@ -189,22 +191,22 @@
   });
 }
 
-  
-
+// ----------------- UPDATE RESERVATION -----------------
 async function updateReservation(id, r, status) {
   const docRef = doc(db, "reservations", id);
   await updateDoc(docRef, { status });
 
-  if (r.email) { // ✅ only send if email exists
+  const email = r.user;
+  if (email) {
     try {
       await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
-        to_email: r.email,
+        to_email: email,
         name: r.name,
         date: r.date,
         teren: r.teren,
         status: status
       });
-      console.log("✅ Email sent to", r.email);
+      console.log("✅ Email sent to", email);
     } catch (err) {
       console.error("❌ Email error:", err);
     }
@@ -215,49 +217,62 @@ async function updateReservation(id, r, status) {
   loadReservations();
 }
 
+// ----------------- LOAD JOIN REQUESTS -----------------
+async function loadJoinRequests() {
+  joinRequestsList.innerHTML = "";
+  const snapshot = await getDocs(collection(db, "reservations"));
+  snapshot.forEach(docSnap => {
+    const r = docSnap.data();
+    if (r.joinRequests && r.joinRequests.length > 0) {
+      r.joinRequests.forEach((j, index) => {
+        const div = document.createElement("div");
+        div.classList.add("request");
+        div.innerHTML = `
+          <p><b>${j.name}</b> (${j.email})<br>
+          Poruka: ${j.message || "-"}</p>
+          <p>Status: ${j.status}</p>
+          <button class="accept">Prihvati</button>
+          <button class="reject">Odbij</button>
+        `;
+        div.querySelector(".accept").addEventListener("click", () => updateJoinRequest(docSnap.id, index, j, "accepted"));
+        div.querySelector(".reject").addEventListener("click", () => updateJoinRequest(docSnap.id, index, j, "rejected"));
+        joinRequestsList.appendChild(div);
+      });
+    }
+  });
+}
 
-  // Join requests
-  async function loadJoinRequests() {
-    joinRequestsList.innerHTML = "";
-    const snapshot = await getDocs(collection(db, "joinRequests"));
-    snapshot.forEach(docSnap => {
-      const r = docSnap.data();
-      const div = document.createElement("div");
-      div.classList.add("request");
-      div.innerHTML = `
-        <p><b>${r.name}</b> (${r.email})<br>
-        Poruka: ${r.message || "-"}</p>
-        <p>Status: ${r.status}</p>
-        <button class="accept">Prihvati</button>
-        <button class="reject">Odbij</button>
-      `;
-      div.querySelector(".accept").addEventListener("click", () => updateJoinRequest(docSnap.id, r, "accepted"));
-      div.querySelector(".reject").addEventListener("click", () => updateJoinRequest(docSnap.id, r, "rejected"));
-      joinRequestsList.appendChild(div);
-    });
-  }
+// ----------------- UPDATE JOIN REQUEST -----------------
+async function updateJoinRequest(reservationId, joinIndex, j, status) {
+  const docRef = doc(db, "reservations", reservationId);
 
-  async function updateJoinRequest(id, r, status) {
-  const docRef = doc(db, "joinRequests", id);
-  await updateDoc(docRef, { status });
+  // update joinRequests array
+  const snapshot = await getDocs(collection(db, "reservations"));
+  const docSnap = await docRef.get();
+  const reservationData = (await docRef.get()).data();
+  const updatedJoinRequests = [...reservationData.joinRequests];
+  updatedJoinRequests[joinIndex] = { ...updatedJoinRequests[joinIndex], status };
 
-  if (r.email) { // ✅ only send if email exists
+  await updateDoc(docRef, { joinRequests: updatedJoinRequests });
+
+  if (j.email) {
     try {
-      await emailjs.send("service_8fwmwyi","template_etn1gtm",{
-        to_email: r.email,
-        name: r.name,
+      await emailjs.send("service_8fwmwyi", "template_etn1gtm", {
+        to_email: j.email,
+        name: j.name,
         status: status
       });
-      console.log("✅ Email sent to", r.email);
+      console.log("✅ Email sent to", j.email);
     } catch(err) {
       console.error("❌ Email error:", err);
     }
   } else {
-    console.warn("⚠️ Join request has no email, skipping:", r);
+    console.warn("⚠️ Join request has no email, skipping:", j);
   }
 
   loadJoinRequests();
 }
+
 </script>
 </body>
 </html>
