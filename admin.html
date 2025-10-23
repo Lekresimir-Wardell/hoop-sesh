@@ -178,38 +178,50 @@
   });
 
   // Rezervacije
-  async function loadReservations() {
-    reservationsList.innerHTML = "";
-    const snapshot = await getDocs(collection(db, "reservations"));
-    snapshot.forEach(docSnap => {
-      const r = docSnap.data();
+ async function loadReservations() {
+  reservationsList.innerHTML = "";
+  const snapshot = await getDocs(collection(db, "reservations"));
+  snapshot.forEach(docSnap => {
+    const r = docSnap.data();
+    if (r.status === "pending" || !r.status) {  // show only pending
       const div = document.createElement("div");
       div.classList.add("reservation");
       div.innerHTML = `
         <p><b>${r.name}</b> (${r.email})<br>
         Datum: ${r.date}, Vrijeme: ${r.time}, Teren: ${r.teren}</p>
-        <p>Status: ${r.status}</p>
+        <p>Status: ${r.status || "pending"}</p>
         <button class="accept">Prihvati</button>
         <button class="reject">Odbij</button>
       `;
       div.querySelector(".accept").addEventListener("click", () => updateReservation(docSnap.id, r, "accepted"));
       div.querySelector(".reject").addEventListener("click", () => updateReservation(docSnap.id, r, "rejected"));
       reservationsList.appendChild(div);
-    });
+    }
+  });
+}
+
   }
 
-  async function updateReservation(id, r, status) {
-    const docRef = doc(db, "reservations", id);
-    await updateDoc(docRef, { status });
-    emailjs.send("service_8fwmwyi","template_p01lv7f",{
+ async function updateReservation(id, r, status) {
+  const docRef = doc(db, "reservations", id);
+  await updateDoc(docRef, { status });
+
+  try {
+    await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
       to_email: r.email,
       name: r.name,
       date: r.date,
       teren: r.teren,
       status: status
     });
-    loadReservations();
+    console.log("✅ Email sent to", r.email);
+  } catch (err) {
+    console.error("❌ Email error:", err);
   }
+
+  loadReservations();
+}
+
 
   // Join requests
   async function loadJoinRequests() {
