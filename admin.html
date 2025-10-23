@@ -191,21 +191,25 @@
 
   
 
- async function updateReservation(id, r, status) {
+async function updateReservation(id, r, status) {
   const docRef = doc(db, "reservations", id);
   await updateDoc(docRef, { status });
 
-  try {
-    await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
-      to_email: r.email,
-      name: r.name,
-      date: r.date,
-      teren: r.teren,
-      status: status
-    });
-    console.log("✅ Email sent to", r.email);
-  } catch (err) {
-    console.error("❌ Email error:", err);
+  if (r.email) { // ✅ only send if email exists
+    try {
+      await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
+        to_email: r.email,
+        name: r.name,
+        date: r.date,
+        teren: r.teren,
+        status: status
+      });
+      console.log("✅ Email sent to", r.email);
+    } catch (err) {
+      console.error("❌ Email error:", err);
+    }
+  } else {
+    console.warn("⚠️ Reservation has no email, skipping:", r);
   }
 
   loadReservations();
@@ -234,15 +238,26 @@
   }
 
   async function updateJoinRequest(id, r, status) {
-    const docRef = doc(db, "joinRequests", id);
-    await updateDoc(docRef, { status });
-    emailjs.send("service_8fwmwyi","template_etn1gtm",{
-      to_email: r.email,
-      name: r.name,
-      status: status
-    });
-    loadJoinRequests();
+  const docRef = doc(db, "joinRequests", id);
+  await updateDoc(docRef, { status });
+
+  if (r.email) { // ✅ only send if email exists
+    try {
+      await emailjs.send("service_8fwmwyi","template_etn1gtm",{
+        to_email: r.email,
+        name: r.name,
+        status: status
+      });
+      console.log("✅ Email sent to", r.email);
+    } catch(err) {
+      console.error("❌ Email error:", err);
+    }
+  } else {
+    console.warn("⚠️ Join request has no email, skipping:", r);
   }
+
+  loadJoinRequests();
+}
 </script>
 </body>
 </html>
