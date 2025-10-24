@@ -173,14 +173,31 @@
   let currentUser = null;
 
   // Google login
-  loginBtn.addEventListener("click", async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      alert("Greška prilikom prijave: " + error.message);
-    }
-  });
+  onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    // Not logged in
+    loginWrapper.style.display = "flex";
+    adminWrapper.style.display = "none";
+    return;
+  }
+
+  // Check if user is admin
+  if (user.email === "linovernik@gmail.com") {
+    currentUser = user;
+    loginWrapper.style.display = "none";
+    adminWrapper.style.display = "block";
+
+    // Load admin data
+    loadReservations().catch(err => console.error("Load reservations error", err));
+    loadJoinRequests().catch(err => console.error("Load join requests error", err));
+    loadLeaderboard().catch(err => console.error("Load leaderboard error", err));
+
+  } else {
+    alert("Nemate pristup admin stranici.");
+    signOut(auth).catch(err => console.error("Sign out error", err));
+  }
+});
+
 
   // Tabs
   document.querySelectorAll(".tabBtn").forEach(btn => {
