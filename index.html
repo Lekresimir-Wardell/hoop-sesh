@@ -372,22 +372,53 @@
     await signOut(auth);
   });
 
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentUser = user;
-      loginWrapper.style.display = "none";
-      appRoot.style.display = "block";
-      userEmailEl.textContent = user.email;
-      // prefill name input
-      nameInput.value = user.displayName || "";
-      // render calendar
-      loadReservations().then(()=> renderCalendar());
-    } else {
-      currentUser = null;
-      loginWrapper.style.display = "flex";
-      appRoot.style.display = "none";
-    }
-  });
+ // ---------- USER COLLECTION SYNC ----------
+async function ensureUserInFirestore(user) {
+  if (!user) return;
+  const usersCol = collection(db, "users");
+  const snapshot = await getDocs(usersCol);
+  const exists = snapshot.docs.some(d => d.id === user.uid);
+  if (!exists) {
+    // Ask user to pick a display name
+    let chosenName = prompt("Odaberite ime koje će se prikazivati u leaderboardu:", user.displayName || "");
+    if (!chosenName) chosenName = user.displayName || "Unnamed";
+    await addDoc(usersCol, {
+      uid: user.uid,
+      email: user.email,
+      name: chosenName,
+      wins: 0,
+      losses: 0,
+      pointsFor: 0,
+      pointsAgainst: 0,
+      createdAt: Timestamp.now()
+    });
+  }
+}
+
+// Call after login
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    loginWrapper.style.display = "none";
+    appRoot.style.display = "block";
+    userEmailEl.textContent = user.email;
+
+    // ensure user is in Firestore
+    await ensureUserInFirestore(user);
+
+    // prefill name input
+    nameInput.value = user.displayName || "";
+
+    // load reservations and render calendar
+    await loadReservations();
+    renderCalendar();
+  } else {
+    currentUser = null;
+    loginWrapper.style.display = "flex";
+    appRoot.style.display = "none";
+  }
+});
+
 
   // ---------- Calendar rendering ----------
   // helpers
@@ -667,5 +698,6 @@
 </script>
 </body>
 </html>
+
 
 
