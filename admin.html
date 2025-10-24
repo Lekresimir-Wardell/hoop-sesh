@@ -94,7 +94,7 @@
     <button class="tabBtn active" data-tab="reservationsTab">Rezervacije</button>
     <button class="tabBtn" data-tab="joinRequestsTab">Zahtjevi za pridruživanje</button>
     <button class="tabBtn" data-tab="logGameTab">Log Game</button>
-   <button class="tabBtn" data-tab="leaderboardTab">Leaderboard</button>
+    <button class="tabBtn" data-tab="leaderboardTab">Leaderboard</button>
   </div>
 
   <!-- Reservations -->
@@ -121,19 +121,21 @@
     </form>
   </div>
 
- <div id="leaderboardTab" class="list">
-  <h3>Leaderboard</h3>
-  <table id="leaderboardTable" style="width:100%; border-collapse: collapse;">
-    <thead>
-      <tr style="background:#1D428A; color:white;">
-        <th style="padding:8px; text-align:left;">Name</th>
-        <th style="padding:8px; text-align:center;">Wins</th>
-        <th style="padding:8px; text-align:center;">Losses</th>
-        <th style="padding:8px; text-align:center;">Point Diff</th>
-      </tr>
-    </thead>
-    <tbody id="leaderboardBody"></tbody>
-  </table>
+  <!-- Leaderboard -->
+  <div id="leaderboardTab" class="list">
+    <h3>Leaderboard</h3>
+    <table id="leaderboardTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th style="text-align:center;">Wins</th>
+          <th style="text-align:center;">Losses</th>
+          <th style="text-align:center;">Point Diff</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboardBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script type="module">
@@ -142,7 +144,7 @@
     getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut 
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
   import { 
-    getFirestore, collection, getDocs, updateDoc, doc, deleteDoc, addDoc, query, orderBy 
+    getFirestore, collection, getDocs, updateDoc, doc, deleteDoc, addDoc 
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -165,8 +167,8 @@
   const loginBtn = document.getElementById("googleLoginBtn");
   const reservationsList = document.getElementById("reservationsList");
   const joinRequestsList = document.getElementById("joinRequestsList");
-  const leaderboardList = document.getElementById("leaderboardList");
   const logGameForm = document.getElementById("logGameForm");
+  const leaderboardBody = document.getElementById("leaderboardBody");
 
   let currentUser = null;
 
@@ -180,24 +182,6 @@
     }
   });
 
-  // Auth state
-  onAuthStateChanged(auth, (user) => {
-    if (user && user.email === "linovernik@gmail.com") {
-      currentUser = user;
-      loginWrapper.style.display = "none";
-      adminWrapper.style.display = "block";
-      loadReservations();
-      loadJoinRequests();
-      loadLeaderboard();
-    } else if (user) {
-      alert("Nemate pristup admin stranici.");
-      signOut(auth);
-    } else {
-      loginWrapper.style.display = "flex";
-      adminWrapper.style.display = "none";
-    }
-  });
-
   // Tabs
   document.querySelectorAll(".tabBtn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -208,165 +192,156 @@
     });
   });
 
-  // --------- Reservations and Join Requests (UNCHANGED) ---------
+  // --------- Reservations & Join Requests ---------
   async function loadReservations() {
     reservationsList.innerHTML = "";
     const snapshot = await getDocs(collection(db, "reservations"));
     const allReservations = [];
     snapshot.forEach(docSnap => {
       const r = docSnap.data();
-      const email = r.user;
-      allReservations.push({
-        ...r,
-        id: docSnap.id,
-        email,
-        createdAt: r.createdAt ? new Date(r.createdAt) : new Date(0)
-      });
+      allReservations.push({ ...r, id: docSnap.id, email: r.user, createdAt: r.createdAt ? new Date(r.createdAt) : new Date(0) });
     });
-    allReservations.sort((a, b) => b.createdAt - a.createdAt);
+    allReservations.sort((a,b)=>b.createdAt-a.createdAt);
     allReservations.forEach(r => {
       if (r.status === "pending" || r.status === "accepted" || !r.status) {
         const div = document.createElement("div");
         div.classList.add("reservation");
-        div.innerHTML = `
-          <p><b>${r.name}</b> (${r.email || "—"})<br>
-          Datum: ${r.date || "—"}, Vrijeme: ${r.time || "—"}, Teren: ${r.teren}</p>
-          <p>Status: ${r.status || "pending"}</p>
-          <button class="accept">Prihvati</button>
-          <button class="reject">Odbij</button>
-        `;
-        div.querySelector(".accept").addEventListener("click", () => updateReservation(r.id, r, "accepted"));
-        div.querySelector(".reject").addEventListener("click", () => updateReservation(r.id, r, "rejected"));
+        div.innerHTML = `<p><b>${r.name}</b> (${r.email || "—"})<br>Datum: ${r.date || "—"}, Vrijeme: ${r.time || "—"}, Teren: ${r.teren}</p><p>Status: ${r.status || "pending"}</p><button class="accept">Prihvati</button><button class="reject">Odbij</button>`;
+        div.querySelector(".accept").addEventListener("click", ()=>updateReservation(r.id,r,"accepted"));
+        div.querySelector(".reject").addEventListener("click", ()=>updateReservation(r.id,r,"rejected"));
         reservationsList.appendChild(div);
       }
     });
   }
 
-  async function updateReservation(id, r, status) {
-    const docRef = doc(db, "reservations", id);
-    if (status === "rejected") await deleteDoc(docRef);
-    else await updateDoc(docRef, { status });
-    const email = r.user;
-    if (email) {
-      try {
-        await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
-          to_email: email,
-          user_name: r.name,
-          date: r.date,
-          time: r.time,
-          teren: r.teren,
-          decision: status
-        });
-      } catch (err) { console.error(err); }
-    }
+  async function updateReservation(id,r,status){
+    const docRef=doc(db,"reservations",id);
+    if(status==="rejected") await deleteDoc(docRef);
+    else await updateDoc(docRef,{status});
+    if(r.user){try{await emailjs.send("service_8fwmwyi","template_p01lv7f",{to_email:r.user,user_name:r.name,date:r.date,time:r.time,teren:r.teren,decision:status})}catch(e){console.error(e)}}
     loadReservations();
   }
 
-  async function loadJoinRequests() {
-    joinRequestsList.innerHTML = "";
-    const snapshot = await getDocs(collection(db, "reservations"));
-    const allJoinRequests = [];
-    snapshot.forEach(docSnap => {
-      const r = docSnap.data();
-      if (r.joinRequests && r.joinRequests.length > 0) {
-        r.joinRequests.forEach((j, index) => {
-          allJoinRequests.push({ ...j, reservationId: docSnap.id, joinIndex: index, createdAt: j.createdAt ? new Date(j.createdAt) : new Date(0) });
+  async function loadJoinRequests(){
+    joinRequestsList.innerHTML="";
+    const snapshot=await getDocs(collection(db,"reservations"));
+    const allJoinRequests=[];
+    snapshot.forEach(docSnap=>{
+      const r=docSnap.data();
+      if(r.joinRequests&&r.joinRequests.length>0){
+        r.joinRequests.forEach((j,index)=>{
+          allJoinRequests.push({...j,reservationId:docSnap.id,joinIndex:index,createdAt:j.createdAt?new Date(j.createdAt):new Date(0)});
         });
       }
     });
-    allJoinRequests.sort((a, b) => b.createdAt - a.createdAt);
-    allJoinRequests.forEach((j) => {
-      if (j.status === "pending" || j.status === "accepted") {
-        const div = document.createElement("div");
+    allJoinRequests.sort((a,b)=>b.createdAt-a.createdAt);
+    allJoinRequests.forEach(j=>{
+      if(j.status==="pending"||j.status==="accepted"){
+        const div=document.createElement("div");
         div.classList.add("request");
-        div.innerHTML = `
-          <p><b>${j.name}</b> (${j.email})<br>
-          Poruka: ${j.message || "-"}</p>
-          <p>Status: ${j.status}</p>
-          <button class="accept">Prihvati</button>
-          <button class="reject">Odbij</button>
-        `;
-        div.querySelector(".accept").addEventListener("click", () => updateJoinRequest(j.reservationId, j.joinIndex, j, "accepted"));
-        div.querySelector(".reject").addEventListener("click", () => updateJoinRequest(j.reservationId, j.joinIndex, j, "rejected"));
+        div.innerHTML=`<p><b>${j.name}</b> (${j.email})<br>Poruka: ${j.message||"-"}</p><p>Status: ${j.status}</p><button class="accept">Prihvati</button><button class="reject">Odbij</button>`;
+        div.querySelector(".accept").addEventListener("click",()=>updateJoinRequest(j.reservationId,j.joinIndex,j,"accepted"));
+        div.querySelector(".reject").addEventListener("click",()=>updateJoinRequest(j.reservationId,j.joinIndex,j,"rejected"));
         joinRequestsList.appendChild(div);
       }
     });
   }
 
-  async function updateJoinRequest(reservationId, joinIndex, j, status) {
-    const docRef = doc(db, "reservations", reservationId);
-    const docSnap = await getDocs(docRef);
-    const reservationData = docSnap.data();
-    let updatedJoinRequests = [...(reservationData.joinRequests || [])];
-    if (status === "rejected") updatedJoinRequests.splice(joinIndex, 1);
-    else updatedJoinRequests[joinIndex] = { ...updatedJoinRequests[joinIndex], status };
-    await updateDoc(docRef, { joinRequests: updatedJoinRequests });
-    if (j.email) {
-      try { await emailjs.send("service_8fwmwyi", "template_etn1gtm", { to_email: j.email, user_name: j.name, decision: status }); } 
-      catch(err){console.error(err);}
-    }
+  async function updateJoinRequest(reservationId,joinIndex,j,status){
+    const docRef=doc(db,"reservations",reservationId);
+    const docSnap=await getDocs(docRef);
+    const reservationData=docSnap.data();
+    let updatedJoinRequests=[...(reservationData.joinRequests||[])];
+    if(status==="rejected") updatedJoinRequests.splice(joinIndex,1);
+    else updatedJoinRequests[joinIndex]={...updatedJoinRequests[joinIndex],status};
+    await updateDoc(docRef,{joinRequests:updatedJoinRequests});
+    if(j.email){try{await emailjs.send("service_8fwmwyi","template_etn1gtm",{to_email:j.email,user_name:j.name,decision:status})}catch(e){console.error(e)}}
     loadJoinRequests();
   }
 
-  // --------- NEW: Log Game ---------
-  logGameForm.addEventListener("submit", async (e) => {
+  // --------- Log Game & Update Users ---------
+  logGameForm.addEventListener("submit",async(e)=>{
     e.preventDefault();
-    const team1 = document.getElementById("team1").value;
-    const score1 = parseInt(document.getElementById("score1").value);
-    const team2 = document.getElementById("team2").value;
-    const score2 = parseInt(document.getElementById("score2").value);
-    const winner = score1 > score2 ? team1 : (score2 > score1 ? team2 : "Draw");
+    const team1=document.getElementById("team1").value.trim();
+    const score1=parseInt(document.getElementById("score1").value);
+    const team2=document.getElementById("team2").value.trim();
+    const score2=parseInt(document.getElementById("score2").value);
+    const winner=score1>score2?team1:team2;
 
-    await addDoc(collection(db, "games"), { team1, score1, team2, score2, winner, createdAt: new Date() });
+    await addDoc(collection(db,"games"),{team1,score1,team2,score2,winner,createdAt:new Date()});
+    await updateUsersAfterGame(team1,score1,team2,score2);
 
     alert("Game logged!");
     logGameForm.reset();
     loadLeaderboard();
   });
 
-  // --------- NEW: Leaderboard ---------
- const leaderboardBody = document.getElementById("leaderboardBody");
-
-async function loadLeaderboard() {
-  leaderboardBody.innerHTML = "";
-  const snapshot = await getDocs(collection(db, "users"));
-  const allUsers = [];
-
-  snapshot.forEach(docSnap => {
-    const u = docSnap.data();
-    allUsers.push({
-      name: u.name || "Unnamed",
-      wins: u.wins || 0,
-      losses: u.losses || 0,
-      pointDiff: (u.pointsFor || 0) - (u.pointsAgainst || 0)
+  async function updateUsersAfterGame(team1,score1,team2,score2){
+    const usersCol=collection(db,"users");
+    const snapshot=await getDocs(usersCol);
+    const users={};
+    snapshot.forEach(docSnap=>{
+      const data=docSnap.data();
+      users[data.name]={id:docSnap.id,...data};
     });
-  });
 
-  // Sort: wins descending, then point differential descending
-  allUsers.sort((a, b) => {
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    return b.pointDiff - a.pointDiff;
-  });
+    // create teams if not exist
+    if(!users[team1]){const docRef=await addDoc(usersCol,{name:team1,wins:0,losses:0,pointsFor:0,pointsAgainst:0}); users[team1]={id:docRef.id,name:team1,wins:0,losses:0,pointsFor:0,pointsAgainst:0};}
+    if(!users[team2]){const docRef=await addDoc(usersCol,{name:team2,wins:0,losses:0,pointsFor:0,pointsAgainst:0}); users[team2]={id:docRef.id,name:team2,wins:0,losses:0,pointsFor:0,pointsAgainst:0};}
 
-  allUsers.forEach(u => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td style="padding:6px;">${u.name}</td>
-      <td style="padding:6px; text-align:center;">${u.wins}</td>
-      <td style="padding:6px; text-align:center;">${u.losses}</td>
-      <td style="padding:6px; text-align:center;">${u.pointDiff}</td>
-    `;
-    leaderboardBody.appendChild(tr);
-  });
-}
+    const updates=[
+      {user:users[team1],wins:score1>score2?1:0,losses:score1<score2?1:0,pointsFor:score1,pointsAgainst:score2},
+      {user:users[team2],wins:score2>score1?1:0,losses:score2<score1?1:0,pointsFor:score2,pointsAgainst:score1}
+    ];
 
-// Call this whenever admin logs in to refresh leaderboard
-onAuthStateChanged(auth, (user) => {
-  if (user && user.email === "linovernik@gmail.com") {
-    loadLeaderboard();
+    for(const u of updates){
+      const docRef=doc(db,"users",u.user.id);
+      await updateDoc(docRef,{
+        wins:(u.user.wins||0)+u.wins,
+        losses:(u.user.losses||0)+u.losses,
+        pointsFor:(u.user.pointsFor||0)+u.pointsFor,
+        pointsAgainst:(u.user.pointsAgainst||0)+u.pointsAgainst
+      });
+    }
   }
-});
 
+  // --------- Leaderboard ---------
+  async function loadLeaderboard(){
+    leaderboardBody.innerHTML="";
+    const snapshot=await getDocs(collection(db,"users"));
+    const allUsers=[];
+    snapshot.forEach(docSnap=>{
+      const u=docSnap.data();
+      allUsers.push({
+        name:u.name||"Unnamed",
+        wins:u.wins||0,
+        losses:u.losses||0,
+        pointDiff:(u.pointsFor||0)-(u.pointsAgainst||0)
+      });
+    });
+    allUsers.sort((a,b)=>{
+      if(b.wins!==a.wins) return b.wins-a.wins;
+      return b.pointDiff-a.pointDiff;
+    });
+    allUsers.forEach(u=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td style="padding:6px;">${u.name}</td><td style="padding:6px;text-align:center;">${u.wins}</td><td style="padding:6px;text-align:center;">${u.losses}</td><td style="padding:6px;text-align:center;">${u.pointDiff}</td>`;
+      leaderboardBody.appendChild(tr);
+    });
+  }
+
+  // --------- Auth State ---------
+  onAuthStateChanged(auth,(user)=>{
+    if(user && user.email==="linovernik@gmail.com"){
+      currentUser=user;
+      loginWrapper.style.display="none";
+      adminWrapper.style.display="block";
+      loadReservations();
+      loadJoinRequests();
+      loadLeaderboard();
+    } else if(user){ alert("Nemate pristup admin stranici."); signOut(auth);}
+    else{loginWrapper.style.display="flex"; adminWrapper.style.display="none";}
+  });
 
 </script>
 </body>
