@@ -94,7 +94,7 @@
     <button class="tabBtn active" data-tab="reservationsTab">Rezervacije</button>
     <button class="tabBtn" data-tab="joinRequestsTab">Zahtjevi za pridruživanje</button>
     <button class="tabBtn" data-tab="logGameTab">Log Game</button>
-    <button class="tabBtn" data-tab="leaderboardTab">Leaderboard</button>
+   <button class="tabBtn" data-tab="leaderboardTab">Leaderboard</button>
   </div>
 
   <!-- Reservations -->
@@ -121,11 +121,19 @@
     </form>
   </div>
 
-  <!-- Leaderboard -->
-  <div id="leaderboardTab" class="list">
-    <h3>Leaderboard</h3>
-    <div id="leaderboardList"></div>
-  </div>
+ <div id="leaderboardTab" class="list">
+  <h3>Leaderboard</h3>
+  <table id="leaderboardTable" style="width:100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background:#1D428A; color:white;">
+        <th style="padding:8px; text-align:left;">Name</th>
+        <th style="padding:8px; text-align:center;">Wins</th>
+        <th style="padding:8px; text-align:center;">Losses</th>
+        <th style="padding:8px; text-align:center;">Point Diff</th>
+      </tr>
+    </thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table>
 </div>
 
 <script type="module">
@@ -317,24 +325,48 @@
   });
 
   // --------- NEW: Leaderboard ---------
-  async function loadLeaderboard() {
-    leaderboardList.innerHTML = "";
-    const snapshot = await getDocs(collection(db, "games"));
-    const stats = {};
-    snapshot.forEach(docSnap => {
-      const g = docSnap.data();
-      if (!stats[g.team1]) stats[g.team1] = 0;
-      if (!stats[g.team2]) stats[g.team2] = 0;
-      if (g.winner === g.team1) stats[g.team1]++;
-      if (g.winner === g.team2) stats[g.team2]++;
-    });
+ const leaderboardBody = document.getElementById("leaderboardBody");
 
-    const sorted = Object.entries(stats).sort((a,b) => b[1]-a[1]);
-    let html = `<table><tr><th>Team</th><th>Wins</th></tr>`;
-    sorted.forEach(([team, wins]) => html += `<tr><td>${team}</td><td>${wins}</td></tr>`);
-    html += `</table>`;
-    leaderboardList.innerHTML = html;
+async function loadLeaderboard() {
+  leaderboardBody.innerHTML = "";
+  const snapshot = await getDocs(collection(db, "users"));
+  const allUsers = [];
+
+  snapshot.forEach(docSnap => {
+    const u = docSnap.data();
+    allUsers.push({
+      name: u.name || "Unnamed",
+      wins: u.wins || 0,
+      losses: u.losses || 0,
+      pointDiff: (u.pointsFor || 0) - (u.pointsAgainst || 0)
+    });
+  });
+
+  // Sort: wins descending, then point differential descending
+  allUsers.sort((a, b) => {
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    return b.pointDiff - a.pointDiff;
+  });
+
+  allUsers.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="padding:6px;">${u.name}</td>
+      <td style="padding:6px; text-align:center;">${u.wins}</td>
+      <td style="padding:6px; text-align:center;">${u.losses}</td>
+      <td style="padding:6px; text-align:center;">${u.pointDiff}</td>
+    `;
+    leaderboardBody.appendChild(tr);
+  });
+}
+
+// Call this whenever admin logs in to refresh leaderboard
+onAuthStateChanged(auth, (user) => {
+  if (user && user.email === "linovernik@gmail.com") {
+    loadLeaderboard();
   }
+});
+
 
 </script>
 </body>
