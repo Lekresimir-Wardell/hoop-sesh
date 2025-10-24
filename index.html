@@ -97,15 +97,6 @@
       font-weight:700;
     }
 
-    /* Tabs */
-    .tabs{
-      display:flex;
-      gap:6px;
-      margin-left:12px;
-      align-items:center;
-    }
-    .tabs button{cursor:pointer;border:none;border-radius:6px;font-weight:600;}
-
     /* Main content */
     .main{
       display:flex;
@@ -227,10 +218,6 @@
       <div class="brand">
         <h2>Rezervacije</h2>
         <div class="small">Upravljanje terminima</div>
-        <div class="tabs">
-          <button id="calendarTab" class="primaryBtn" style="font-size:14px;padding:6px 12px">Kalendar</button>
-          <button id="leaderboardTab" class="secondary" style="font-size:14px;padding:6px 12px">Leaderboard</button>
-        </div>
       </div>
 
       <div class="userBar">
@@ -288,28 +275,11 @@
           <div style="margin-top:12px" id="formMsg" class="small"></div>
         </form>
       </aside>
-
-      <!-- LEADERBOARD SECTION -->
-      <section class="calendarCard" id="leaderboardSection" style="display:none;">
-        <h3>Leaderboard</h3>
-        <table id="leaderboardTable" style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc">#</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc">Ime</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc">Wins</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc">Losses</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc">Points For</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc">Points Against</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
     </main>
   </div>
 
 <script type="module">
+  // Firebase imports (modular)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
   import {
     getAuth,
@@ -328,6 +298,7 @@
     Timestamp
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
+  // ---------- CONFIG (your keys) ----------
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
     authDomain: "hoops-165ec.firebaseapp.com",
@@ -338,16 +309,22 @@
     measurementId: "G-C3YPHXZCXN"
   };
 
+  // EmailJS config (public key)
   const EMAILJS_USER_ID = "bHkaG3QCQ98fZq5Mu";
   const EMAILJS_SERVICE = "service_8fwmwyi";
-  const EMAILJS_TEMPLATE_RESERVATION = "template_p01lv7f";
-  const EMAILJS_TEMPLATE_JOINADMIN = "template_p01lv7f";
+  const EMAILJS_TEMPLATE_RESERVATION = "template_p01lv7f"; // reservation confirmation template
+  const EMAILJS_TEMPLATE_JOINADMIN = "template_p01lv7f"; // reuse for admin notification (or change)
+  // NOTE: admin replies use template_etn1gtm in admin panel
 
+  // Initialize
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+
+  // EmailJS init
   (function(){ emailjs.init(EMAILJS_USER_ID); })();
 
+  // DOM refs
   const loginWrapper = document.getElementById("loginWrapper");
   const loginBox = document.getElementById("loginBox");
   const googleLoginBtn = document.getElementById("googleLoginBtn");
@@ -370,20 +347,17 @@
   const cancelBtn = document.getElementById("cancelBtn");
   const formMsg = document.getElementById("formMsg");
 
-  const calendarTabBtn = document.getElementById("calendarTab");
-  const leaderboardTabBtn = document.getElementById("leaderboardTab");
-  const leaderboardSection = document.getElementById("leaderboardSection");
-  const calendarCard = document.querySelector(".calendarCard");
-  const formCard = document.querySelector(".formCard");
-
+  // State
   let currentUser = null;
   let visibleYear = (new Date()).getFullYear();
-  let visibleMonth = (new Date()).getMonth();
-  let selectedDay = null;
-  let reservationsCache = [];
+  let visibleMonth = (new Date()).getMonth(); // 0-based
+  let selectedDay = null; // Date object (year,month,day)
+  let reservationsCache = []; // cached docs
 
+  // Weekday labels (Monday-first)
   const WEEKDAYS = ["Pon","Uto","Sri","Čet","Pet","Sub","Ned"];
 
+  // ---------- Auth flow ----------
   googleLoginBtn.addEventListener("click", async () => {
     try{
       const provider = new GoogleAuthProvider();
@@ -398,50 +372,64 @@
     await signOut(auth);
   });
 
-  async function ensureUserInFirestore(user) {
-    if (!user) return;
-    const usersCol = collection(db, "users");
-    const snapshot = await getDocs(usersCol);
-    const exists = snapshot.docs.some(d => d.id === user.uid);
-    if (!exists) {
-      let chosenName = prompt("Odaberite ime koje će se prikazivati u leaderboardu:", user.displayName || "");
-      if (!chosenName) chosenName = user.displayName || "Unnamed";
-      await addDoc(usersCol, {
-        uid: user.uid,
-        email: user.email,
-        name: chosenName,
-        wins: 0,
-        losses: 0,
-        pointsFor: 0,
-        pointsAgainst: 0,
-        createdAt: Timestamp.now()
-      });
-    }
+ // ---------- USER COLLECTION SYNC ----------
+async function ensureUserInFirestore(user) {
+  if (!user) return;
+  const usersCol = collection(db, "users");
+  const snapshot = await getDocs(usersCol);
+  const exists = snapshot.docs.some(d => d.id === user.uid);
+  if (!exists) {
+    // Ask user to pick a display name
+    let chosenName = prompt("Odaberite ime koje će se prikazivati u leaderboardu:", user.displayName || "");
+    if (!chosenName) chosenName = user.displayName || "Unnamed";
+    await addDoc(usersCol, {
+      uid: user.uid,
+      email: user.email,
+      name: chosenName,
+      wins: 0,
+      losses: 0,
+      pointsFor: 0,
+      pointsAgainst: 0,
+      createdAt: Timestamp.now()
+    });
   }
+}
 
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      currentUser = user;
-      loginWrapper.style.display = "none";
-      appRoot.style.display = "block";
-      userEmailEl.textContent = user.email;
-      await ensureUserInFirestore(user);
-      nameInput.value = user.displayName || "";
-      await loadReservations();
-      renderCalendar();
-    } else {
-      currentUser = null;
-      loginWrapper.style.display = "flex";
-      appRoot.style.display = "none";
-    }
-  });
+// Call after login
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    loginWrapper.style.display = "none";
+    appRoot.style.display = "block";
+    userEmailEl.textContent = user.email;
 
+    // ensure user is in Firestore
+    await ensureUserInFirestore(user);
+
+    // prefill name input
+    nameInput.value = user.displayName || "";
+
+    // load reservations and render calendar
+    await loadReservations();
+    renderCalendar();
+  } else {
+    currentUser = null;
+    loginWrapper.style.display = "flex";
+    appRoot.style.display = "none";
+  }
+});
+
+
+  // ---------- Calendar rendering ----------
+  // helpers
   function monthYearTitle(year, month) {
     return new Date(year, month, 1).toLocaleString('hr-HR', { month: 'long', year: 'numeric' });
   }
 
   function startOfMonthWeekday(year, month) {
-    const jsDay = new Date(year, month, 1).getDay();
+    // return 0..6 where 0 = Monday (we want Monday first)
+    const jsDay = new Date(year, month, 1).getDay(); // 0 Sunday .. 6 Saturday
+    // convert so Monday=0..Sunday=6
     return (jsDay === 0) ? 6 : jsDay - 1;
   }
 
@@ -450,11 +438,13 @@
   }
 
   async function loadReservations(){
+    // load all reservations into cache
     reservationsCache = [];
     try {
       const snapshot = await getDocs(collection(db,"reservations"));
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
+        // keep id and timestamp if exists
         reservationsCache.push({ id: docSnap.id, ...data });
       });
     } catch(err){
@@ -463,116 +453,250 @@
     }
   }
 
-  function renderCalendar(){
-    monthTitle.textContent = monthYearTitle(visibleYear,visibleMonth);
-    weekdaysContainer.innerHTML = WEEKDAYS.map(d=>`<div class="weekday">${d}</div>`).join('');
-    daysGrid.innerHTML = "";
-    const firstWeekday = startOfMonthWeekday(visibleYear,visibleMonth);
-    const daysInMonth = new Date(visibleYear, visibleMonth+1, 0).getDate();
-
-    for(let i=0;i<firstWeekday;i++){
-      const div = document.createElement("div");
-      div.className="day empty"; daysGrid.appendChild(div);
-    }
-
-    for(let d=1; d<=daysInMonth; d++){
-      const div = document.createElement("div"); div.className="day"; div.dataset.day=d;
-      const numDiv = document.createElement("div"); numDiv.className="num"; numDiv.textContent=d;
-      div.appendChild(numDiv);
-
-      const itemsDiv = document.createElement("div"); itemsDiv.className="items";
-
-      const dateStr = formatLocalDate(visibleYear,visibleMonth,d);
-      const dayReservations = reservationsCache.filter(r=>r.date===dateStr);
-
-      dayReservations.forEach(r=>{
-        const span = document.createElement("div");
-        span.textContent = `${r.name} - ${r.time} (${r.teren})`;
-        if(r.userId===currentUser.uid) span.className="badge mine";
-        else span.className="badge reserved-other";
-        itemsDiv.appendChild(span);
-      });
-
-      div.appendChild(itemsDiv);
-
-      if(new Date(visibleYear,visibleMonth,d)<new Date()) div.classList.add("past");
-
-      div.addEventListener("click",()=>selectDay(d));
-      daysGrid.appendChild(div);
-    }
-  }
-
-  function selectDay(day){
-    selectedDay = day;
-    selectedDateText.textContent = formatLocalDate(visibleYear,visibleMonth,day);
-  }
-
-  prevMonthBtn.addEventListener("click",()=>{ visibleMonth--; if(visibleMonth<0){visibleMonth=11;visibleYear--;} renderCalendar(); });
-  nextMonthBtn.addEventListener("click",()=>{ visibleMonth++; if(visibleMonth>11){visibleMonth=0;visibleYear++;} renderCalendar(); });
-
-  reservationForm.addEventListener("submit",async (e)=>{
-    e.preventDefault();
-    if(!selectedDay){ formMsg.textContent="Odaberite datum."; return;}
-    const data = {
-      userId: currentUser.uid,
-      name: nameInput.value,
-      date: formatLocalDate(visibleYear,visibleMonth,selectedDay),
-      time: timeInput.value,
-      teren: terenSelect.value,
-      createdAt: Timestamp.now()
-    };
-    try{
-      await addDoc(collection(db,"reservations"),data);
-      await loadReservations();
-      renderCalendar();
-      formMsg.textContent="Rezervacija je spremljena!";
-      reservationForm.reset();
-    } catch(err){
-      console.error(err);
-      formMsg.textContent="Greška pri spremanju rezervacije.";
-    }
-  });
-
-  cancelBtn.addEventListener("click",()=>{reservationForm.reset(); selectedDateText.textContent="—";});
-
-  // TAB SWITCHING
-  calendarTabBtn.addEventListener("click",()=>{
-    calendarCard.style.display="block";
-    formCard.style.display="block";
-    leaderboardSection.style.display="none";
-    calendarTabBtn.className="primaryBtn";
-    leaderboardTabBtn.className="secondary";
-  });
-
-  leaderboardTabBtn.addEventListener("click",async ()=>{
-    calendarCard.style.display="none";
-    formCard.style.display="none";
-    leaderboardSection.style.display="block";
-    calendarTabBtn.className="secondary";
-    leaderboardTabBtn.className="primaryBtn";
-    await renderLeaderboard();
-  });
-
-  async function renderLeaderboard(){
-    const usersCol = collection(db,"users");
-    const snapshot = await getDocs(usersCol);
-    const users = snapshot.docs.map(d=>d.data());
-    users.sort((a,b)=>b.wins - a.wins || b.pointsFor - a.pointsFor);
-    const tbody = document.querySelector("#leaderboardTable tbody");
-    tbody.innerHTML="";
-    users.forEach((u,idx)=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML=`
-        <td style="padding:6px;border-bottom:1px solid #eee">${idx+1}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee">${u.name||u.email}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee">${u.wins||0}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee">${u.losses||0}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee">${u.pointsFor||0}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee">${u.pointsAgainst||0}</td>
-      `;
-      tbody.appendChild(tr);
+  function reservationsForDay(year,month,day){
+    return reservationsCache.filter(r => {
+      if (!r.timestamp) return false;
+      const dt = ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+      return dt.getFullYear()===year && dt.getMonth()===month && dt.getDate()===day;
     });
   }
+
+  function renderCalendar(){
+    daysGrid.innerHTML = "";
+    weekdaysContainer.innerHTML = "";
+
+    // weekdays header
+    WEEKDAYS.forEach(w => {
+      const wEl = document.createElement("div");
+      wEl.className = "weekday";
+      wEl.textContent = w;
+      weekdaysContainer.appendChild(wEl);
+    });
+
+    const year = visibleYear;
+    const month = visibleMonth;
+    monthTitle.textContent = monthYearTitle(year, month);
+
+    const firstWeekday = startOfMonthWeekday(year, month); // 0..6 (Monday..Sunday)
+    const lastDay = new Date(year, month+1, 0).getDate();
+
+    // render empty slots before first day
+    for (let i=0;i<firstWeekday;i++){
+      const empty = document.createElement("div");
+      empty.className = "day empty";
+      daysGrid.appendChild(empty);
+    }
+
+    const today = new Date();
+    for (let d=1; d<=lastDay; d++){
+      const dayEl = document.createElement("div");
+      dayEl.className = "day";
+      const dayNum = document.createElement("div");
+      dayNum.className = "num";
+      dayNum.textContent = d;
+      dayEl.appendChild(dayNum);
+
+      // reservations for that day
+      const dayRes = reservationsForDay(year, month, d);
+
+      const items = document.createElement("div");
+      items.className = "items";
+      if (dayRes.length>0){
+        dayRes.slice(0,3).forEach(r => {
+          const dt = r.timestamp && ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+          const t = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          const item = document.createElement("div");
+          item.textContent = `${r.name} — ${t} — ${r.teren}`;
+          items.appendChild(item);
+        });
+        if (dayRes.length>3){
+          const more = document.createElement("div");
+          more.textContent = `+${dayRes.length-3} više...`;
+          more.style.color = "#666"; more.style.fontSize="12px";
+          items.appendChild(more);
+        }
+        dayEl.appendChild(items);
+      }
+
+      // tooltip with details
+      if (dayRes.length>0){
+        let info = "";
+        dayRes.forEach(r => {
+          const dt = r.timestamp && ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+          const t = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+          info += `${r.name} — ${t} — ${r.teren}\n`;
+          if (r.joinRequests && r.joinRequests.length>0){
+            r.joinRequests.forEach(j => {
+              info += `  → Pridruži se: ${j.name} (${j.status})\n`;
+            });
+          }
+        });
+        dayEl.setAttribute("data-tooltip", info.trim());
+        // show tooltip on hover via custom element
+        dayEl.addEventListener("mouseenter", (e)=>{
+          const tt = document.createElement("div");
+          tt.className="tooltip";
+          tt.id = "tmpTooltip";
+          tt.textContent = e.currentTarget.getAttribute("data-tooltip");
+          document.body.appendChild(tt);
+          const rect = e.currentTarget.getBoundingClientRect();
+          tt.style.position="absolute";
+          tt.style.left = (rect.left + rect.width/2 - tt.offsetWidth/2) + "px";
+          tt.style.top = (rect.top - tt.offsetHeight - 10) + "px";
+        });
+        dayEl.addEventListener("mouseleave", ()=>{
+          const ttd = document.getElementById("tmpTooltip");
+          if (ttd) ttd.remove();
+        });
+      }
+
+      // status classes
+      const slotDate = new Date(year, month, d);
+      const slotIsPast = new Date(today.getFullYear(), today.getMonth(), today.getDate()) > slotDate;
+      if (slotIsPast) dayEl.classList.add("past");
+      else if (dayRes.length===0) dayEl.classList.add("available");
+      else {
+        // if any reservation belongs to current user, mark mine
+        const mine = dayRes.find(r => r.user === (currentUser && currentUser.email));
+        if (mine) dayEl.classList.add("mine");
+        else dayEl.classList.add("reserved-other");
+      }
+
+      // click behavior
+      dayEl.addEventListener("click", () => {
+        if (slotIsPast) return;
+        selectedDay = new Date(year, month, d);
+        selectedDateText.textContent = formatLocalDate(year,month,d);
+        reservationForm.style.display = "block";
+        // pre-fill name/time if user has displayName / email
+        nameInput.value = currentUser.displayName || nameInput.value;
+      });
+
+      // If there is a reservation and not mine, show a small join button
+      if (!slotIsPast && dayRes.length>0){
+        const mine = dayRes.find(r => r.user === (currentUser && currentUser.email));
+        if (!mine){
+          const joinBtn = document.createElement("button");
+          joinBtn.className = "joinBtnLocal";
+          joinBtn.textContent = "Pridruži se";
+          joinBtn.addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            // join first reservation of that day (business rule)
+            const r = dayRes[0];
+            // prevent duplicate join
+            const already = (r.joinRequests || []).some(j => j.email === (currentUser && currentUser.email));
+            if (already){
+              alert("Već ste poslali zahtjev za pridruživanje ovoj rezervaciji.");
+              return;
+            }
+            const joinName = prompt("Upišite ime za pridruživanje:");
+            if (!joinName) return;
+            const docRef = doc(db, "reservations", r.id);
+            const newJoin = { name: joinName, email: currentUser.email, status: "pending" };
+            await updateDoc(docRef, {
+              joinRequests: [...(r.joinRequests || []), newJoin]
+            });
+            // notify admin (send small email) - reuse reservation template for admin alert
+            try {
+              await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_JOINADMIN, {
+                to_email: "linovernik@gmail.com",
+                name: joinName,
+                date: formatLocalDate(year,month,d),
+                time: (r.timestamp && ('toDate' in r.timestamp) ? r.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : "nepoznato"),
+                teren: r.teren
+              });
+            } catch(e){ console.warn("EmailJS admin notify failed", e); }
+            alert("Zahtjev poslan!");
+            await loadReservations();
+            renderCalendar();
+          });
+          dayEl.appendChild(joinBtn);
+        }
+      }
+
+      daysGrid.appendChild(dayEl);
+    }
+  }
+
+  // prev / next handlers
+  prevMonthBtn.addEventListener("click", () => {
+    visibleMonth--;
+    if (visibleMonth < 0){ visibleMonth = 11; visibleYear--; }
+    renderCalendar();
+  });
+  nextMonthBtn.addEventListener("click", () => {
+    visibleMonth++;
+    if (visibleMonth > 11){ visibleMonth = 0; visibleYear++; }
+    renderCalendar();
+  });
+
+  // ---------- Reservation form submit ----------
+  reservationForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!selectedDay) { formMsg.textContent = "Odaberite datum iz kalendara."; return; }
+    if (!currentUser) { formMsg.textContent = "Morate biti prijavljeni."; return; }
+
+    const name = nameInput.value.trim();
+    const timeVal = timeInput.value;
+    const teren = terenSelect.value;
+
+    if (!name || !timeVal || !teren){ formMsg.textContent = "Ispunite sva polja."; return; }
+    formMsg.textContent = "Spremanje…";
+
+    // combine selectedDay + timeVal into Date
+    const [hh,mm] = timeVal.split(":").map(s => parseInt(s,10));
+    const dt = new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), hh, mm);
+
+    // Prevent double booking at same timestamp for same teren (simple check)
+    const clash = reservationsCache.find(r => {
+      if (!r.timestamp) return false;
+      const rdt = ('toDate' in r.timestamp) ? r.timestamp.toDate() : new Date(r.timestamp.seconds*1000);
+      return Math.abs(rdt.getTime() - dt.getTime()) < (1000*60*60) && r.teren === teren; // 1h window
+    });
+    if (clash){
+      formMsg.textContent = "Postoji rezervacija u istom terminu za odabrani teren.";
+      return;
+    }
+
+    try {
+      await addDoc(collection(db,"reservations"), {
+        timestamp: Timestamp.fromDate(dt),
+        name,
+        teren,
+        user: currentUser.email,
+        status: "pending",
+        joinRequests: []
+      });
+
+     
+
+      formMsg.textContent = "Rezervirano — status pending.";
+      reservationForm.reset();
+      selectedDateText.textContent = "—";
+      selectedDay = null;
+
+      // refresh cache & calendar
+      await loadReservations();
+      renderCalendar();
+
+    } catch(err){
+      console.error("Add reservation error", err);
+      formMsg.textContent = "Greška pri spremanju. Pokušajte ponovno.";
+    }
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    reservationForm.reset();
+    selectedDateText.textContent = "—";
+    selectedDay = null;
+    formMsg.textContent = "";
+    reservationForm.style.display = "none";
+  });
+
+  // initial render (weekday headers prefilled)
+  // nothing to do here: calendar will render after user login
 </script>
 </body>
 </html>
+
+
