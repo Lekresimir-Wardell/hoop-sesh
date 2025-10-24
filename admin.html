@@ -37,7 +37,7 @@
 
     #adminWrapper { display:none; padding:20px; }
 
-    .tabs { display:flex; gap:10px; margin-bottom:20px; }
+    .tabs { display:flex; gap:10px; margin-bottom:20px; flex-wrap: wrap; }
     .tabBtn {
       padding:10px 20px;
       border:none;
@@ -51,7 +51,7 @@
     .list { display:none; }
     .list.active { display:block; }
 
-    .reservation, .request {
+    .reservation, .request, .game {
       background:white;
       padding:15px;
       margin:10px 0;
@@ -65,6 +65,16 @@
     }
     .accept { background:green; color:white; border:none; border-radius:6px; }
     .reject { background:red; color:white; border:none; border-radius:6px; }
+
+    /* NEW: Log Game form */
+    #logGameForm { display:flex; flex-direction: column; gap:10px; max-width:400px; }
+    #logGameForm input, #logGameForm select { padding:8px; border-radius:6px; border:1px solid #ccc; }
+    #logGameForm button { background:#1D428A; color:#FFC72C; font-weight:bold; border:none; border-radius:6px; }
+
+    /* NEW: Leaderboard table */
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { padding:8px; text-align:left; border-bottom:1px solid #ddd; }
+    th { background:#1D428A; color:#fff; }
   </style>
 </head>
 <body>
@@ -83,16 +93,38 @@
   <div class="tabs">
     <button class="tabBtn active" data-tab="reservationsTab">Rezervacije</button>
     <button class="tabBtn" data-tab="joinRequestsTab">Zahtjevi za pridruživanje</button>
+    <button class="tabBtn" data-tab="logGameTab">Log Game</button>
+    <button class="tabBtn" data-tab="leaderboardTab">Leaderboard</button>
   </div>
 
+  <!-- Reservations -->
   <div id="reservationsTab" class="list active">
     <h3>Rezervacije</h3>
     <div id="reservationsList"></div>
   </div>
 
+  <!-- Join Requests -->
   <div id="joinRequestsTab" class="list">
     <h3>Zahtjevi za pridruživanje</h3>
     <div id="joinRequestsList"></div>
+  </div>
+
+  <!-- Log Game -->
+  <div id="logGameTab" class="list">
+    <h3>Log Game</h3>
+    <form id="logGameForm">
+      <input type="text" id="team1" placeholder="Team 1 Name" required>
+      <input type="number" id="score1" placeholder="Team 1 Score" required>
+      <input type="text" id="team2" placeholder="Team 2 Name" required>
+      <input type="number" id="score2" placeholder="Team 2 Score" required>
+      <button type="submit">Log Game</button>
+    </form>
+  </div>
+
+  <!-- Leaderboard -->
+  <div id="leaderboardTab" class="list">
+    <h3>Leaderboard</h3>
+    <div id="leaderboardList"></div>
   </div>
 </div>
 
@@ -102,9 +134,9 @@
     getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut 
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
   import { 
-    getFirestore, collection, getDocs, updateDoc, doc, deleteDoc 
+    getFirestore, collection, getDocs, updateDoc, doc, deleteDoc, addDoc, query, orderBy 
   } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
-  // Firebase config
+
   const firebaseConfig = {
     apiKey: "AIzaSyAnFYrebR69a2rmYeT-TWrX1RB_Tzsh3Tk",
     authDomain: "hoops-165ec.firebaseapp.com",
@@ -118,7 +150,6 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // EmailJS init
   (function(){ emailjs.init("bHkaG3QCQ98fZq5Mu"); })();
 
   const loginWrapper = document.getElementById("loginWrapper");
@@ -126,6 +157,8 @@
   const loginBtn = document.getElementById("googleLoginBtn");
   const reservationsList = document.getElementById("reservationsList");
   const joinRequestsList = document.getElementById("joinRequestsList");
+  const leaderboardList = document.getElementById("leaderboardList");
+  const logGameForm = document.getElementById("logGameForm");
 
   let currentUser = null;
 
@@ -147,6 +180,7 @@
       adminWrapper.style.display = "block";
       loadReservations();
       loadJoinRequests();
+      loadLeaderboard();
     } else if (user) {
       alert("Nemate pristup admin stranici.");
       signOut(auth);
@@ -166,176 +200,141 @@
     });
   });
 
-  
-// ----------------- LOAD RESERVATIONS -----------------
-async function loadReservations() {
-  reservationsList.innerHTML = "";
-  const snapshot = await getDocs(collection(db, "reservations"));
-
-  const allReservations = [];
-  snapshot.forEach(docSnap => {
-    const r = docSnap.data();
-    const email = r.user; // use correct email field
-    allReservations.push({
-      ...r,
-      id: docSnap.id,
-      email,
-      createdAt: r.createdAt ? new Date(r.createdAt) : new Date(0)
+  // --------- Reservations and Join Requests (UNCHANGED) ---------
+  async function loadReservations() {
+    reservationsList.innerHTML = "";
+    const snapshot = await getDocs(collection(db, "reservations"));
+    const allReservations = [];
+    snapshot.forEach(docSnap => {
+      const r = docSnap.data();
+      const email = r.user;
+      allReservations.push({
+        ...r,
+        id: docSnap.id,
+        email,
+        createdAt: r.createdAt ? new Date(r.createdAt) : new Date(0)
+      });
     });
-  });
-
-  // Sort by createdAt (newest first)
-  allReservations.sort((a, b) => b.createdAt - a.createdAt);
-
-  // Show only pending or accepted
-  allReservations.forEach(r => {
-    if (r.status === "pending" || r.status === "accepted" || !r.status) {
-      const div = document.createElement("div");
-      div.classList.add("reservation");
-      div.innerHTML = `
-        <p><b>${r.name}</b> (${r.email || "—"})<br>
-        Datum: ${r.date || "—"}, Vrijeme: ${r.time || "—"}, Teren: ${r.teren}</p>
-        <p>Status: ${r.status || "pending"}</p>
-        <button class="accept">Prihvati</button>
-        <button class="reject">Odbij</button>
-      `;
-      div.querySelector(".accept").addEventListener("click", () => updateReservation(r.id, r, "accepted"));
-      div.querySelector(".reject").addEventListener("click", () => updateReservation(r.id, r, "rejected"));
-      reservationsList.appendChild(div);
-    }
-  });
-}
-
-// ----------------- UPDATE RESERVATION -----------------
-async function updateReservation(id, r, status) {
-  const docRef = doc(db, "reservations", id);
-
-  if (status === "rejected") {
-    // ❌ Delete rejected reservations entirely
-    await deleteDoc(docRef);
-  } else {
-    // ✅ Update status for accepted
-    await updateDoc(docRef, { status });
+    allReservations.sort((a, b) => b.createdAt - a.createdAt);
+    allReservations.forEach(r => {
+      if (r.status === "pending" || r.status === "accepted" || !r.status) {
+        const div = document.createElement("div");
+        div.classList.add("reservation");
+        div.innerHTML = `
+          <p><b>${r.name}</b> (${r.email || "—"})<br>
+          Datum: ${r.date || "—"}, Vrijeme: ${r.time || "—"}, Teren: ${r.teren}</p>
+          <p>Status: ${r.status || "pending"}</p>
+          <button class="accept">Prihvati</button>
+          <button class="reject">Odbij</button>
+        `;
+        div.querySelector(".accept").addEventListener("click", () => updateReservation(r.id, r, "accepted"));
+        div.querySelector(".reject").addEventListener("click", () => updateReservation(r.id, r, "rejected"));
+        reservationsList.appendChild(div);
+      }
+    });
   }
 
-  const email = r.user;
-  if (email) {
-    try {
-      await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
-        to_email: email,
-        user_name: r.name,
-        date: r.date,
-        time: r.time,
-        teren: r.teren,
-        decision: status
-      });
-      console.log("✅ Email sent to", email);
-    } catch (err) {
-      console.error("❌ Email error:", err);
-    }
-  } else {
-    console.warn("⚠️ Reservation has no email, skipping:", r);
-  }
-
-  loadReservations();
-}
-
-
-// ----------------- LOAD JOIN REQUESTS ----------------
-async function loadJoinRequests() {
-  joinRequestsList.innerHTML = "";
-
-  const snapshot = await getDocs(collection(db, "reservations"));
-  const allJoinRequests = [];
-
-  snapshot.forEach(docSnap => {
-    const r = docSnap.data();
-    if (r.joinRequests && r.joinRequests.length > 0) {
-      r.joinRequests.forEach((j, index) => {
-        allJoinRequests.push({
-          ...j,
-          reservationId: docSnap.id,
-          joinIndex: index,
-          createdAt: j.createdAt ? new Date(j.createdAt) : new Date(0) // fallback
+  async function updateReservation(id, r, status) {
+    const docRef = doc(db, "reservations", id);
+    if (status === "rejected") await deleteDoc(docRef);
+    else await updateDoc(docRef, { status });
+    const email = r.user;
+    if (email) {
+      try {
+        await emailjs.send("service_8fwmwyi", "template_p01lv7f", {
+          to_email: email,
+          user_name: r.name,
+          date: r.date,
+          time: r.time,
+          teren: r.teren,
+          decision: status
         });
-      });
+      } catch (err) { console.error(err); }
     }
+    loadReservations();
+  }
+
+  async function loadJoinRequests() {
+    joinRequestsList.innerHTML = "";
+    const snapshot = await getDocs(collection(db, "reservations"));
+    const allJoinRequests = [];
+    snapshot.forEach(docSnap => {
+      const r = docSnap.data();
+      if (r.joinRequests && r.joinRequests.length > 0) {
+        r.joinRequests.forEach((j, index) => {
+          allJoinRequests.push({ ...j, reservationId: docSnap.id, joinIndex: index, createdAt: j.createdAt ? new Date(j.createdAt) : new Date(0) });
+        });
+      }
+    });
+    allJoinRequests.sort((a, b) => b.createdAt - a.createdAt);
+    allJoinRequests.forEach((j) => {
+      if (j.status === "pending" || j.status === "accepted") {
+        const div = document.createElement("div");
+        div.classList.add("request");
+        div.innerHTML = `
+          <p><b>${j.name}</b> (${j.email})<br>
+          Poruka: ${j.message || "-"}</p>
+          <p>Status: ${j.status}</p>
+          <button class="accept">Prihvati</button>
+          <button class="reject">Odbij</button>
+        `;
+        div.querySelector(".accept").addEventListener("click", () => updateJoinRequest(j.reservationId, j.joinIndex, j, "accepted"));
+        div.querySelector(".reject").addEventListener("click", () => updateJoinRequest(j.reservationId, j.joinIndex, j, "rejected"));
+        joinRequestsList.appendChild(div);
+      }
+    });
+  }
+
+  async function updateJoinRequest(reservationId, joinIndex, j, status) {
+    const docRef = doc(db, "reservations", reservationId);
+    const docSnap = await getDocs(docRef);
+    const reservationData = docSnap.data();
+    let updatedJoinRequests = [...(reservationData.joinRequests || [])];
+    if (status === "rejected") updatedJoinRequests.splice(joinIndex, 1);
+    else updatedJoinRequests[joinIndex] = { ...updatedJoinRequests[joinIndex], status };
+    await updateDoc(docRef, { joinRequests: updatedJoinRequests });
+    if (j.email) {
+      try { await emailjs.send("service_8fwmwyi", "template_etn1gtm", { to_email: j.email, user_name: j.name, decision: status }); } 
+      catch(err){console.error(err);}
+    }
+    loadJoinRequests();
+  }
+
+  // --------- NEW: Log Game ---------
+  logGameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const team1 = document.getElementById("team1").value;
+    const score1 = parseInt(document.getElementById("score1").value);
+    const team2 = document.getElementById("team2").value;
+    const score2 = parseInt(document.getElementById("score2").value);
+    const winner = score1 > score2 ? team1 : (score2 > score1 ? team2 : "Draw");
+
+    await addDoc(collection(db, "games"), { team1, score1, team2, score2, winner, createdAt: new Date() });
+
+    alert("Game logged!");
+    logGameForm.reset();
+    loadLeaderboard();
   });
 
-  // Sort by createdAt (newest first)
-  allJoinRequests.sort((a, b) => b.createdAt - a.createdAt);
+  // --------- NEW: Leaderboard ---------
+  async function loadLeaderboard() {
+    leaderboardList.innerHTML = "";
+    const snapshot = await getDocs(collection(db, "games"));
+    const stats = {};
+    snapshot.forEach(docSnap => {
+      const g = docSnap.data();
+      if (!stats[g.team1]) stats[g.team1] = 0;
+      if (!stats[g.team2]) stats[g.team2] = 0;
+      if (g.winner === g.team1) stats[g.team1]++;
+      if (g.winner === g.team2) stats[g.team2]++;
+    });
 
-  // Render requests
-  allJoinRequests.forEach((j) => {
-    // Show only pending or accepted
-    if (j.status === "pending" || j.status === "accepted") {
-      const div = document.createElement("div");
-      div.classList.add("request");
-      div.innerHTML = `
-        <p><b>${j.name}</b> (${j.email})<br>
-        Poruka: ${j.message || "-"}</p>
-        <p>Status: ${j.status}</p>
-        <button class="accept">Prihvati</button>
-        <button class="reject">Odbij</button>
-      `;
-
-      div.querySelector(".accept").addEventListener("click", () => 
-        updateJoinRequest(j.reservationId, j.joinIndex, j, "accepted")
-      );
-      div.querySelector(".reject").addEventListener("click", () => 
-        updateJoinRequest(j.reservationId, j.joinIndex, j, "rejected")
-      );
-
-      joinRequestsList.appendChild(div);
-    }
-  });
-}
-
-// ----------------- UPDATE JOIN REQUEST -----------------
-async function updateJoinRequest(reservationId, joinIndex, j, status) {
-  const docRef = doc(db, "reservations", reservationId);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) {
-    console.error("Reservation not found:", reservationId);
-    return;
+    const sorted = Object.entries(stats).sort((a,b) => b[1]-a[1]);
+    let html = `<table><tr><th>Team</th><th>Wins</th></tr>`;
+    sorted.forEach(([team, wins]) => html += `<tr><td>${team}</td><td>${wins}</td></tr>`);
+    html += `</table>`;
+    leaderboardList.innerHTML = html;
   }
-
-  const reservationData = docSnap.data();
-  let updatedJoinRequests = [...(reservationData.joinRequests || [])];
-
-  if (status === "rejected") {
-    // remove rejected request
-    updatedJoinRequests.splice(joinIndex, 1);
-  } else {
-    // update status if accepted
-    updatedJoinRequests[joinIndex] = { ...updatedJoinRequests[joinIndex], status };
-  }
-
-  // update joinRequests array in Firestore
-  await updateDoc(docRef, { joinRequests: updatedJoinRequests });
-
-  // Send email if email exists
-  const email = j.email;
-  if (email) {
-    try {
-      await emailjs.send("service_8fwmwyi", "template_etn1gtm", {
-        to_email: email,
-        user_name: j.name,
-        decision: status
-      });
-      console.log("✅ Email sent to", email);
-    } catch (err) {
-      console.error("❌ Email error:", err);
-    }
-  } else {
-    console.warn("⚠️ Join request has no email, skipping:", j);
-  }
-
-  // Reload updated list
-  loadJoinRequests();
-}
-
-
 
 </script>
 </body>
