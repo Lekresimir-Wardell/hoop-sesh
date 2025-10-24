@@ -313,7 +313,7 @@
   const EMAILJS_USER_ID = "bHkaG3QCQ98fZq5Mu";
   const EMAILJS_SERVICE = "service_8fwmwyi";
   const EMAILJS_TEMPLATE_RESERVATION = "template_p01lv7f"; // reservation confirmation template
-  const EMAILJS_TEMPLATE_JOINADMIN = "template_p01lv7f"; // reuse for admin notification (or change)
+  const EMAILJS_TEMPLATE_JOINADMIN = "template_etn1gtm"; // reuse for admin notification (or change)
   // NOTE: admin replies use template_etn1gtm in admin panel
 
   // Initialize
@@ -373,16 +373,16 @@
   });
 
  // ---------- USER COLLECTION SYNC ----------
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
 async function ensureUserInFirestore(user) {
   if (!user) return;
-  const usersCol = collection(db, "users");
-  const snapshot = await getDocs(usersCol);
-  const exists = snapshot.docs.some(d => d.id === user.uid);
-  if (!exists) {
-    // Ask user to pick a display name
+  const userRef = doc(db, "users", user.uid);
+  const snapshot = await getDoc(userRef);
+  if (!snapshot.exists()) {
     let chosenName = prompt("Odaberite ime koje će se prikazivati u leaderboardu:", user.displayName || "");
     if (!chosenName) chosenName = user.displayName || "Unnamed";
-    await addDoc(usersCol, {
+    await setDoc(userRef, {
       uid: user.uid,
       email: user.email,
       name: chosenName,
@@ -394,6 +394,7 @@ async function ensureUserInFirestore(user) {
     });
   }
 }
+
 
 // Call after login
 onAuthStateChanged(auth, async (user) => {
@@ -674,6 +675,18 @@ onAuthStateChanged(auth, async (user) => {
       reservationForm.reset();
       selectedDateText.textContent = "—";
       selectedDay = null;
+// Send email to admin about the new reservation
+try {
+  await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_JOINADMIN, {
+    to_email: "linovernik@gmail.com",
+    name: name, // who booked
+    date: formatLocalDate(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate()),
+    time: timeVal, // time selected in the form
+    teren: teren
+  });
+} catch(e) {
+  console.warn("EmailJS admin notify failed", e);
+}
 
       // refresh cache & calendar
       await loadReservations();
@@ -698,5 +711,6 @@ onAuthStateChanged(auth, async (user) => {
 </script>
 </body>
 </html>
+
 
 
