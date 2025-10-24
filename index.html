@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1D428A">
-
+<link rel="icon" href="assets/icon-192.png">
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
@@ -711,15 +711,19 @@ try {
 
   // initial render (weekday headers prefilled)
   // nothing to do here: calendar will render after user login
-  if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js")
-    .then(reg => console.log("Service Worker registered", reg))
-    .catch(err => console.error("SW registration failed", err));
+ <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('Service Worker registered:', reg))
+      .catch(err => console.log('Service Worker registration failed:', err));
+  });
 }
 
 </script>
 </body>
 </html>
+
 
 
 
