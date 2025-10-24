@@ -328,17 +328,16 @@
   // 1. Fetch all users
   const usersSnap = await getDocs(collection(db, "users"));
   const usersMap = {};
-  usersSnap.forEach(docSnap => {
-    const u = docSnap.data();
-    usersMap[u.uid] = {
-      name: u.name || "Unnamed",
-      wins: 0,
-      losses: 0,
-      pointsFor: 0,
-      pointsAgainst: 0,
-      uid: u.uid
-    };
-  });
+usersSnap.forEach(docSnap => {
+  const u = docSnap.data();
+  usersMap[u.name] = {
+    name: u.name,
+    wins: u.wins || 0,
+    losses: u.losses || 0,
+    pointsFor: u.pointsFor || 0,
+    pointsAgainst: u.pointsAgainst || 0
+  };
+});
 
   // 2. Fetch all games
   const gamesSnap = await getDocs(collection(db, "games"));
@@ -346,8 +345,10 @@
     const g = docSnap.data();
 
     // identify team1 and team2 by name
-    const t1 = Object.values(usersMap).find(u => u.name === g.team1);
-    const t2 = Object.values(usersMap).find(u => u.name === g.team2);
+   const t1 = usersMap[g.team1];
+const t2 = usersMap[g.team2];
+if (!t1 || !t2) return;
+
 
     if (!t1 || !t2) return; // skip if a user doesn't exist yet
 
