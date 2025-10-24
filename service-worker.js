@@ -1,24 +1,20 @@
-const CACHE_NAME = "hoops-cache-v1";
+const CACHE_NAME = 'hoops-admin-cache-v1';
 const urlsToCache = [
-  "/admin.html",
-  "/manifest.json",
-  "/style.css",
-  "/index.js", // or your main JS file
-  "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"
+  './',
+  './index.html',
+  './manifest.json',
+  './assets/icon-192.jpg',
+  './assets/icon-512.jpg'
 ];
 
-// Install event
-self.addEventListener("install", event => {
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
 });
 
-// Fetch event
-self.addEventListener("fetch", event => {
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
+    caches.match(event.request).then(response => response || fetch(event.request))
   );
 });
